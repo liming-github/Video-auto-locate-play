@@ -8,7 +8,10 @@
 
 <video src="https://github.com/user-attachments/assets/cc7e561b-ddfa-4271-8ac2-6723b92a8031" controls muted playsinline width="760"></video>
 
-▶️ 播放器没显示？[点这里直接观看](https://github.com/user-attachments/assets/cc7e561b-ddfa-4271-8ac2-6723b92a8031)
+
+
+Uploading video-enhancer.user.mp4…
+
 
 演示内容：长网页里定位视频 → `→` 快进 → `↑` 调音量 → `空格` 暂停 → `回车` 全屏 → `ESC` 退出并回到原位置。
 

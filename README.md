@@ -6,7 +6,7 @@
 
 ## 演示视频
 
-<video src="https://github.com/user-attachments/assets/cc7e561b-ddfa-4271-8ac2-6723b92a8031" controls muted playsinline width="760"></video>
+<video src="https://github.com/user-attachments/assets/" controls muted playsinline width="760"></video>
 
 
 

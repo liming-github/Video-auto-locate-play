@@ -1,11 +1,12 @@
 // ==UserScript==
-// @name         视频增强 · Video Enhancer
-// @name:zh-CN   视频增强(左右快进/音量/自动播放/全屏/画中画)
+// @name         网页视频快捷键增强（快进快退/音量/全屏/自动播放）
+// @name:zh-CN   网页视频快捷键增强（快进快退/音量/全屏/自动播放）
+// @name:en      Web Video Hotkeys — Seek, Volume, Fullscreen, Autoplay
 // @namespace    https://github.com/liming-github/dsh-video-enhancer
-// @version      1.7.1
-// @description  ←/→ 快退快进(10s) · ↑/↓ 音量 · 空格暂停 · 自动播放网页视频 · 回车/F 全屏 · ESC 退出并保持页面位置 · P 画中画 · M 静音 · 自动定位视频
-// @description:en Arrow-key seek & volume, space pause, autoplay, Enter/F fullscreen with scroll restore, picture-in-picture, mute toggle
-// @author       leon
+// @version      1.8.0
+// @description  ←/→ 视频快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音 · 自动播放网页视频 · 自动定位视频。支持 iframe 播放器，不干扰输入框。
+// @description:en Arrow-key seek and volume for any HTML5 video, space to pause, Enter/F for fullscreen with scroll restore, picture-in-picture, mute, autoplay and auto-scroll to the player.
+// @author       leon (liming-github)
 // @license      MIT
 // @homepageURL  https://github.com/liming-github/dsh-video-enhancer
 // @supportURL   https://github.com/liming-github/dsh-video-enhancer/issues

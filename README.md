@@ -6,19 +6,11 @@
 
 ## 演示视频
 
-<video src="https://github.com/user-attachments/assets/" controls muted playsinline width="760"></video>
+![操作演示](docs/demo.gif)
 
+▶️ 完整视频（14 秒 / 3.3 MB）：[docs/demo.mp4](./docs/demo.mp4)
 
-
-Uploading video-enhancer.user.mp4…
-
-
-演示内容：长网页里定位视频 → `→` 快进 → `↑` 调音量 → `空格` 暂停 → `回车` 全屏 → `ESC` 退出并回到原位置。
-
-![操作动图](docs/demo.gif)
-
-> 上面是同一段操作的动图版本（Greasyfork 等不支持内嵌视频的地方用它）。
-
+演示内容：在长网页里自动定位到视频 → `→` 快进 → `↑` 调音量 → `空格` 暂停 → `回车` 全屏 → `ESC` 退出并回到视频原位置。
 
 ## 功能
 

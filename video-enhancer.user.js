@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/dsh-video-enhancer
-// @version      1.8.1
+// @version      1.9.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -67,9 +67,29 @@
     } catch (e) { return null; }
   }
 
+  // 收集页面里所有可用 video（含同源 iframe 内部），不再强制要求 duration 有限
   function vids() {
-    return Array.prototype.slice.call(document.querySelectorAll('video')).filter(function (v) {
-      return v && v.duration && isFinite(v.duration) && v.duration > 1 && v.readyState > 0;
+    var out = [];
+    function collect(doc) {
+      if (!doc) return;
+      try {
+        var list = doc.querySelectorAll('video');
+        for (var i = 0; i < list.length; i++) out.push(list[i]);
+      } catch (e) {}
+      try {
+        var frames = doc.querySelectorAll('iframe');
+        for (var j = 0; j < frames.length; j++) {
+          try { if (frames[j].contentDocument) collect(frames[j].contentDocument); } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    collect(document);
+    return out.filter(function (v) {
+      if (!v) return false;
+      // 有尺寸即可（很多播放器 src 未就绪时 duration 为 NaN/Infinity）
+      var w = v.videoWidth || v.clientWidth || 0;
+      var h = v.videoHeight || v.clientHeight || 0;
+      return w > 80 && h > 45;
     });
   }
 
@@ -327,12 +347,15 @@
     if (isSeek) {
       stop(e);
       var back = (k === 'ArrowLeft');
-      var d = v.duration || 0;
-      var t = v.currentTime + (back ? -STEP : STEP);
+      var dur = v.duration;
+      var finite = isFinite(dur) && dur > 0;
+      var t = (v.currentTime || 0) + (back ? -STEP : STEP);
       if (t < 0) t = 0;
-      if (d && t > d - 0.2) t = Math.max(0, d - 0.2);
+      if (finite && t > dur - 0.2) t = Math.max(0, dur - 0.2);
       try { v.currentTime = t; } catch (err) {}
-      toast((back ? '⏪ -' : '⏩ +') + STEP + 's   ' + fmt(t) + ' / ' + fmt(d));
+      toast(finite
+        ? ((back ? '⏪ -' : '⏩ +') + STEP + 's   ' + fmt(t) + ' / ' + fmt(dur))
+        : ((back ? '⏪ -' : '⏩ +') + STEP + 's   ' + fmt(t)));
       return;
     }
 

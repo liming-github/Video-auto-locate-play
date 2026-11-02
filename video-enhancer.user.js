@@ -2,7 +2,7 @@
 // @name         视频增强 · Video Enhancer
 // @name:zh-CN   视频增强(左右快进/音量/自动播放/全屏/画中画)
 // @namespace    https://github.com/liming-github/dsh-video-enhancer
-// @version      1.6.0
+// @version      1.7.0
 // @description  ←/→ 快退快进(10s) · ↑/↓ 音量 · 空格暂停 · 自动播放网页视频 · 回车/F 全屏 · ESC 退出并保持页面位置 · P 画中画 · M 静音 · 自动定位视频
 // @description:en Arrow-key seek & volume, space pause, autoplay, Enter/F fullscreen with scroll restore, picture-in-picture, mute toggle
 // @author       leon
@@ -41,6 +41,31 @@
     if (el.isContentEditable) return true;
     if (t === 'BUTTON' || t === 'A') return true;
     return false;
+  }
+
+  // 只有真正的文本输入区算"硬可编辑"（输入框/文本域/可编辑区）
+  function isTextEditable(el) {
+    if (!el) return false;
+    var t = (el.tagName || '').toUpperCase();
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return true;
+    return !!el.isContentEditable;
+  }
+
+  // 找不到 <video> 时，尝试把一个"像播放器"的大 iframe 当作全屏目标
+  function pickFrame() {
+    try {
+      var frames = Array.prototype.slice.call(document.querySelectorAll('iframe'));
+      frames = frames.filter(function (f) {
+        var r = f.getBoundingClientRect();
+        return r.width >= 300 && r.height >= 180 && r.top < (window.innerHeight || 800) + 400;
+      });
+      if (!frames.length) return null;
+      frames.sort(function (a, b) {
+        var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return (rb.width * rb.height) - (ra.width * ra.height);
+      });
+      return frames[0];
+    } catch (e) { return null; }
   }
 
   function vids() {
@@ -95,22 +120,23 @@
     } catch (e) {}
   }
 
-  function toggleFullscreen(v) {
+  function toggleFullscreen(v, altEl) {
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
         (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
         toast('退出全屏');
         return;
       }
-      var el = v;
+      var el = v || altEl;
+      if (!el) { toast('没有可全屏的播放器'); return; }
       var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
       if (!fn) {
-        var wrap = v.closest('div,video') || v.parentElement;
+        var wrap = (el.closest && el.closest('div,video')) || el.parentElement;
         fn = wrap && (wrap.requestFullscreen || wrap.webkitRequestFullscreen);
         el = wrap;
       }
       if (!fn) { toast('这个播放器不支持全屏 API'); return; }
-      if (el === v && v.controls === false) { v.controls = true; }
+      if (v && el === v && v.controls === false) { v.controls = true; }
       var p = fn.call(el, { navigationUI: 'hide' });
       if (p && p.then) p.then(function(){ toast('⛶ 全屏'); }).catch(function(){ toast('全屏被浏览器拦截，先点一下页面再按 F'); });
       else toast('⛶ 全屏');
@@ -221,7 +247,8 @@
   /* ---------- 快捷键 ---------- */
   function onKey(e) {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
-    if (isEditable(e.target) || isEditable(document.activeElement)) return;
+    if (isTextEditable(e.target) || isTextEditable(document.activeElement)) return;
+    var softEdit = isEditable(e.target) || isEditable(document.activeElement); // 含按钮/链接
 
     var k = e.key;
     var isSeek = (k === 'ArrowLeft' || k === 'ArrowRight');
@@ -237,6 +264,18 @@
     if (!isSeek && !isVol && !isSpace && !isPip && !isMute && !isFs && !isLoc && !isEnter && !isEsc) return;
 
     var v = pickVideo();
+    var fr = v ? null : pickFrame();
+    if (!v && !fr) return;
+
+    // Enter：只要页面上有播放器就接管，避免被页面的链接/表单当成"打开/刷新"
+    if (isEnter) {
+      stop(e);
+      toggleFullscreen(v, fr);
+      return;
+    }
+
+    // 其余快捷键：焦点在按钮/链接上就让给页面；且必须真有 <video>
+    if (softEdit) return;
     if (!v) return;
 
     if (isSpace) {
@@ -255,9 +294,9 @@
       return;
     }
 
-    if (isEnter || isFs) {
+    if (isFs) {
       stop(e);
-      toggleFullscreen(v);
+      toggleFullscreen(v, fr);
       return;
     }
 

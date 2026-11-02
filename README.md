@@ -60,13 +60,11 @@ var RESTORE_SCROLL_ON_EXIT = true;// 退出全屏后回到视频位置
 
 见 [CHANGELOG.md](./CHANGELOG.md)
 
-## 打赏
+## 支持作者 ☕
 
-如果这个脚本帮你省了时间，可以请我喝杯咖啡 ☕
+这个脚本完全免费、无广告、不上传任何数据。如果它帮你省了时间，可以请我喝杯咖啡：
 
-- 爱发电：`（待补充）`
-- 微信赞赏码：`（待补充，图片放在 assets/reward.png）`
+- **爱发电**：https://ifdian.net/u/195fa88ad6b711f1ac9e5254001e7c00
+- **微信赞赏码**：见仓库 `assets/reward.png`
 
-## License
-
-MIT
+你的支持会让这个脚本持续更新下去（新功能、兼容更多站点）。

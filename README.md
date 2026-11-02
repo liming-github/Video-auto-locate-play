@@ -46,7 +46,7 @@
 
 1. 先安装 [Tampermonkey](https://www.tampermonkey.net/)（或 Violentmonkey / ScriptCat）
 2. **从 Greasyfork 安装（推荐）**：https://greasyfork.org/zh-CN/scripts/603438
-3. 或从 GitHub 安装：https://raw.githubusercontent.com/liming-github/dsh-video-enhancer/main/video-enhancer.user.js
+3. 或从 GitHub 安装：https://raw.githubusercontent.com/liming-github/Video-auto-locate-play/main/video-enhancer.user.js
 
 ## 配置
 
@@ -72,7 +72,7 @@ var RESTORE_SCROLL_ON_EXIT = true;// 退出全屏后回到视频位置
 | 来源 | 地址 | 更新方式 |
 |---|---|---|
 | Greasyfork（推荐给用户） | https://greasyfork.org/zh-CN/scripts/603438 | 上传新版本 |
-| GitHub（源码与历史） | https://github.com/liming-github/dsh-video-enhancer | `git push` |
+| GitHub（源码与历史） | https://github.com/liming-github/Video-auto-locate-play | `git push` |
 
 **发新版流程（3 步）**
 

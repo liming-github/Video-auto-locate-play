@@ -10,11 +10,17 @@ https://github.com/user-attachments/assets/c631634b-5fe4-41cd-b03d-f4d0aa6a5efa
 
 ## 演示视频
 
-![操作演示](docs/demo.gif)
+<video src="https://github.com/user-attachments/assets/c631634b-5fe4-41cd-b03d-f4d0aa6a5efa" controls muted playsinline width="760"></video>
 
-▶️ 完整视频（14 秒 / 3.3 MB）：[docs/demo.mp4](./docs/demo.mp4)
+▶️ 播放器没显示？[点这里直接观看](https://github.com/user-attachments/assets/c631634b-5fe4-41cd-b03d-f4d0aa6a5efa)
 
 演示内容：在长网页里自动定位到视频 → `→` 快进 → `↑` 调音量 → `空格` 暂停 → `回车` 全屏 → `ESC` 退出并回到视频原位置。
+
+<details><summary>动图版（无声音，GitHub/Greasyfork 都能直接显示）</summary>
+
+![操作演示](docs/demo.gif)
+
+</details>
 
 ## 功能
 

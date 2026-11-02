@@ -22,3 +22,7 @@
 
 ## 1.0
 - 首个版本：←/→ 快退快进，解决必须 Tab 到进度条才能快进的问题
+
+## 1.7.1
+- 移除脚本内 @updateURL / @downloadURL，改为跟随安装来源更新（Greasyfork 安装走 Greasyfork，GitHub raw 安装走 GitHub）
+- 回车接管修复：页面存在播放器时，即使焦点在链接/按钮上也进全屏，不再触发页面刷新

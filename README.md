@@ -1,4 +1,6 @@
-# 网页视频快捷键增强 · Web Video Hotkeys
+# Long-page auto-positioning & autoplay ↔ Fast forward/rewind
+
+## 长页面自动定位播放视频 ↔ 快进快退
 
 > 快进快退 / 音量 / 全屏 / 自动播放 —— 一条脚本让任何网页视频听懂键盘
 

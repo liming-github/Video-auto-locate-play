@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         网页视频快捷键增强（快进快退/音量/全屏/自动播放）
-// @name:zh-CN   网页视频快捷键增强（快进快退/音量/全屏/自动播放）
-// @name:en      Web Video Hotkeys — Seek, Volume, Fullscreen, Autoplay
+// @name         Long-page auto-positioning & autoplay ↔ Fast forward/rewind ｜ 长页面自动定位播放视频 ↔ 快进快退
+// @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
+// @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/dsh-video-enhancer
-// @version      1.8.0
-// @description  ←/→ 视频快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音 · 自动播放网页视频 · 自动定位视频。支持 iframe 播放器，不干扰输入框。
-// @description:en Arrow-key seek and volume for any HTML5 video, space to pause, Enter/F for fullscreen with scroll restore, picture-in-picture, mute, autoplay and auto-scroll to the player.
+// @version      1.8.1
+// @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
+// @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
 // @license      MIT
 // @homepageURL  https://github.com/liming-github/dsh-video-enhancer

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.10.2
+// @version      1.10.3
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -253,38 +253,47 @@
     });
   }
 
-  // 兜底：没有任何 <video> 时，扫描所有"像播放器"的容器，挑最大最靠中的那个滚过去
+  // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
       if (window.__vaBoxDone) return;
-      var sels = ['.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr', '.ql-video',
-                  '#player', '.player', '[class*="player"]', '[class*="video-wrap"]',
-                  '[class*="video-wrapper"]', '[class*="video-box"]', '[class*="video-container"]', 'iframe'];
-      var best = null, bestArea = 0;
       var vh = window.innerHeight || 800;
-      sels.forEach(function (sel) {
-        var list;
-        try { list = document.querySelectorAll(sel); } catch (e) { return; }
-        for (var i = 0; i < list.length; i++) {
-          var el = list[i];
-          if (el.tagName === 'VIDEO') continue;
-          var r = el.getBoundingClientRect();
-          var w = r.width || el.clientWidth || 0;
-          var h = r.height || el.clientHeight || 0;
-          if (w < 260 || h < 140) continue;             // 太小的忽略
-          var area = w * h;
-          if (area > bestArea) { bestArea = area; best = el; }
-        }
-      });
-      if (!best) return;
-      var br = best.getBoundingClientRect();
-      var visible = br.bottom > 80 && br.top < vh - 80;
-      window.__vaBoxDone = 1;
-      if (!visible) {
-        best.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var scrollY = window.scrollY || window.pageYOffset || 0;
+
+      function goto(el) {
+        var r = el.getBoundingClientRect();
+        var top = r.top + scrollY;
+        // 已经大致在视野中就不动
+        if (r.height > 100 && r.bottom > 80 && r.top < vh - 80) { window.__vaBoxDone = 1; return true; }
+        window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.25)), behavior: 'smooth' });
+        window.__vaBoxDone = 1;
         toast('⬇️ 已定位到播放器');
+        return true;
       }
+
+      // 1) 精确选择器（即使高度为 0，也用 offsetTop 定位）
+      var exact = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
+                   '#player', '.player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
+                   '[class*="video-container"]', '[class*="video-box"]', 'iframe[src*="play"]', 'iframe'];
+      for (var i = 0; i < exact.length; i++) {
+        var el = null;
+        try { el = document.querySelector(exact[i]); } catch (e) {}
+        if (el && el.tagName !== 'VIDEO') { if (goto(el)) return; }
+      }
+
+      // 2) 通用兜底：面积最大、宽≥260 的块
+      var best = null, bestArea = 0;
+      var list;
+      try { list = document.querySelectorAll('.article-content div, .post-content div, article div, main div'); } catch (e) { list = []; }
+      for (var j = 0; j < list.length && j < 800; j++) {
+        var d = list[j], rr = d.getBoundingClientRect();
+        if (rr.width >= 260 && rr.height >= 150) {
+          var a = rr.width * rr.height;
+          if (a > bestArea) { bestArea = a; best = d; }
+        }
+      }
+      if (best) goto(best);
     } catch (e) {}
   }
 

@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/c631634b-5fe4-41cd-b03d-f4d0aa6a5efa
+
 # 视频增强 · Video Enhancer
 
 一个通用的网页视频增强油猴脚本：**不用先点进度条，直接按键盘就能快进快退**；长页面自动定位到视频；支持自动播放、全屏、画中画。

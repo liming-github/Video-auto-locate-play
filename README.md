@@ -47,6 +47,30 @@ var SCROLL_IF_OFFSCREEN = true;   // 仅在视频不在可视区时才滚
 var RESTORE_SCROLL_ON_EXIT = true;// 退出全屏后回到视频位置
 ```
 
+
+## 更新与维护
+
+本脚本有两处发布源，始终保持内容一致：
+
+| 来源 | 地址 | 更新方式 |
+|---|---|---|
+| Greasyfork（推荐给用户） | https://greasyfork.org/zh-CN/scripts/603438 | 上传新版本 |
+| GitHub（源码与历史） | https://github.com/liming-github/dsh-video-enhancer | `git push` |
+
+**发新版流程（3 步）**
+
+```bash
+# 1. 在本地仓库执行（自动改版本号、提交、推送、并把文件送到 MacBook 桌面）
+./scripts/release.sh 1.7.2 "修复某某问题"
+
+# 2. 打开 Greasyfork 新版本页，选择 MacBook 桌面上的 video-enhancer.user.js
+#    https://greasyfork.org/zh-CN/scripts/603438/versions/new
+
+# 3. 点「发布」即可，用户端油猴会自动提示更新
+```
+
+脚本头部 `@version` 是更新判断依据，**每次发版必须递增**，否则用户端不会更新。
+
 ## 兼容性说明
 
 - 只处理 `duration` 已知且大于 1 秒的 `<video>`；纯图片/装饰广告不会被接管

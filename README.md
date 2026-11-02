@@ -28,8 +28,8 @@
 ## 安装
 
 1. 先安装 [Tampermonkey](https://www.tampermonkey.net/)（或 Violentmonkey / ScriptCat）
-2. 从 Greasyfork 安装：`（待发布）`
-3. 或从 GitHub 安装：打开 `video-enhancer.user.js` 的 raw 链接，油猴会自动弹出安装页
+2. **从 Greasyfork 安装（推荐）**：https://greasyfork.org/zh-CN/scripts/603438
+3. 或从 GitHub 安装：https://raw.githubusercontent.com/liming-github/dsh-video-enhancer/main/video-enhancer.user.js
 
 ## 配置
 

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.10.0
+// @version      1.10.1
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -257,7 +257,7 @@
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
-      var sel = '.dplayer, #dplayer, .art-video-player, .video-js, .plyr, #player, .player';
+      var sel = '.dplayer, #dplayer, .art-video-player, .video-js, .plyr, .ql-video, #player, .player, [class*="player"], [class*="video-wrap"], [class*="video-wrapper"]';
       var box = document.querySelector(sel);
       if (!box || box.dataset.vaBoxScrolled) return;
       var r = box.getBoundingClientRect();

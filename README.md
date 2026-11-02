@@ -4,9 +4,15 @@
 
 适用于所有带 HTML5 `<video>` 播放器的网站（含 iframe 内播放器）。
 
-![功能演示](docs/demo.gif)
+## 演示视频
 
-> 上图是功能示意图（自动生成的动图）：快进、音量、暂停、全屏、退出全屏后回到原位置。
+https://github.com/liming-github/dsh-video-enhancer/raw/main/docs/demo.mp4
+
+<video src="https://github.com/liming-github/dsh-video-enhancer/raw/main/docs/demo.mp4" controls width="760"></video>
+
+▶️ 如果上方播放器没有显示，点这里直接观看/下载：[demo.mp4](./docs/demo.mp4)
+
+演示内容：在长网页中找到视频 → `→` 快进 → `↑` 调音量 → `空格` 暂停 → `回车` 全屏 → `ESC` 退出并回到原位置。
 
 ## 功能
 

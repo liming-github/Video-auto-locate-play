@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.10.1
+// @version      1.10.2
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -253,19 +253,36 @@
     });
   }
 
-  // 兜底：播放器容器存在但没有 <video> 时，也滚动到容器
+  // 兜底：没有任何 <video> 时，扫描所有"像播放器"的容器，挑最大最靠中的那个滚过去
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
-      var sel = '.dplayer, #dplayer, .art-video-player, .video-js, .plyr, .ql-video, #player, .player, [class*="player"], [class*="video-wrap"], [class*="video-wrapper"]';
-      var box = document.querySelector(sel);
-      if (!box || box.dataset.vaBoxScrolled) return;
-      var r = box.getBoundingClientRect();
+      if (window.__vaBoxDone) return;
+      var sels = ['.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr', '.ql-video',
+                  '#player', '.player', '[class*="player"]', '[class*="video-wrap"]',
+                  '[class*="video-wrapper"]', '[class*="video-box"]', '[class*="video-container"]', 'iframe'];
+      var best = null, bestArea = 0;
       var vh = window.innerHeight || 800;
-      if (r.height < 120) return;
-      box.dataset.vaBoxScrolled = '1';
-      if (r.bottom < 60 || r.top > vh - 60) {
-        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      sels.forEach(function (sel) {
+        var list;
+        try { list = document.querySelectorAll(sel); } catch (e) { return; }
+        for (var i = 0; i < list.length; i++) {
+          var el = list[i];
+          if (el.tagName === 'VIDEO') continue;
+          var r = el.getBoundingClientRect();
+          var w = r.width || el.clientWidth || 0;
+          var h = r.height || el.clientHeight || 0;
+          if (w < 260 || h < 140) continue;             // 太小的忽略
+          var area = w * h;
+          if (area > bestArea) { bestArea = area; best = el; }
+        }
+      });
+      if (!best) return;
+      var br = best.getBoundingClientRect();
+      var visible = br.bottom > 80 && br.top < vh - 80;
+      window.__vaBoxDone = 1;
+      if (!visible) {
+        best.scrollIntoView({ behavior: 'smooth', block: 'center' });
         toast('⬇️ 已定位到播放器');
       }
     } catch (e) {}

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.10.3
+// @version      1.11.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -218,6 +218,35 @@
     return true;
   }
 
+  // 浏览器禁止无手势有声播放：脚本先静音播起来，等用户第一次交互后自动恢复声音
+  var unmuteArmed = false;
+  function armUnmuteOnGesture() {
+    if (unmuteArmed) return;
+    unmuteArmed = true;
+    function unlock() {
+      var list = Array.prototype.slice.call(document.querySelectorAll('video'));
+      var changed = 0;
+      list.forEach(function (v) {
+        if (v.dataset.vaAutoMuted === '1' && v.dataset.vaUserMuted !== '1') {
+          v.muted = false;
+          if (v.volume === 0) v.volume = 0.6;
+          delete v.dataset.vaAutoMuted;
+          changed++;
+        }
+      });
+      if (changed) toast('🔊 已自动开启声音（按 M 可静音）');
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+      unmuteArmed = false;
+    }
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('click', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+    document.addEventListener('touchstart', unlock, true);
+  }
+
   function tryPlay(v) {
     if (!v || v.ended) return;
     var p = v.play();
@@ -226,6 +255,8 @@
       p.catch(function () {
         if (!AUTOPLAY_MUTED) return;
         v.muted = true;
+        v.dataset.vaAutoMuted = '1';   // 记录：是脚本为绕过自动播放限制而静音的
+        armUnmuteOnGesture();
         var p2 = v.play();
         if (p2 && p2.then) {
           p2.then(function () {
@@ -385,6 +416,8 @@
     if (isMute) {
       stop(e);
       v.muted = !v.muted;
+      v.dataset.vaUserMuted = v.muted ? '1' : '0';
+      delete v.dataset.vaAutoMuted;
       if (!v.muted && v.volume === 0) v.volume = 0.5;
       toast(v.muted ? '🔇 已静音' : '🔊 已开声音');
       return;

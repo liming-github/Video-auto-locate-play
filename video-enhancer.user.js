@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.11.0
+// @version      1.12.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -32,6 +32,36 @@
 
   var toastEl = null, toastTimer = null;
   var AP_KEY = 'va_autoplay_' + location.hostname;
+
+  // 自带完善播放体验的站点：默认不做自动播放/自动定位（快捷键仍然可用）
+  var EXEMPT_HOSTS = [
+    'bilibili.com', 'b23.tv',
+    'youtube.com', 'youtu.be',
+    'netflix.com', 'disneyplus.com', 'primevideo.com', 'hulu.com',
+    'iqiyi.com', 'v.qq.com', 'youku.com', 'mgtv.com', 'bilibili.tv',
+    'douyin.com', 'kuaishou.com', 'xiaohongshu.com',
+    'spotify.com', 'music.apple.com', 'music.163.com', 'y.qq.com'
+  ];
+
+  function hostMatches(host, rule) {
+    return host === rule || host.endsWith('.' + rule);
+  }
+
+  function hostExempt() {
+    try {
+      return EXEMPT_HOSTS.some(function (r) { return hostMatches(location.hostname.toLowerCase(), r); });
+    } catch (e) { return false; }
+  }
+
+  // 站点级覆盖：localStorage 存 '1'(强制开) / '0'(强制关)，无值则按默认（例外站点关，其它开）
+  function siteState() {
+    try {
+      var v = localStorage.getItem(AP_KEY);
+      if (v === '1') return 'on';
+      if (v === '0') return 'off';
+    } catch (e) {}
+    return hostExempt() ? 'off' : 'on';
+  }
 
   function isEditable(el) {
     if (!el) return false;
@@ -214,8 +244,7 @@
   /* ---------- 自动播放 ---------- */
   function autoplayOn() {
     if (!AUTOPLAY) return false;
-    try { var v = localStorage.getItem(AP_KEY); if (v === '0') return false; } catch (e) {}
-    return true;
+    return siteState() === 'on';
   }
 
   // 浏览器禁止无手势有声播放：脚本先静音播起来，等用户第一次交互后自动恢复声音
@@ -288,6 +317,7 @@
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
+      if (siteState() !== 'on') return;
       if (window.__vaBoxDone) return;
       var vh = window.innerHeight || 800;
       var scrollY = window.scrollY || window.pageYOffset || 0;
@@ -461,8 +491,11 @@
   /* ---------- 站点开关：Shift+Alt+A 切换本站自动播放 ---------- */
   document.addEventListener('keydown', function (e) {
     if (!(e.shiftKey && e.altKey && (e.key === 'a' || e.key === 'A'))) return;
-    var cur = autoplayOn();
-    try { localStorage.setItem(AP_KEY, cur ? '0' : '1'); } catch (err) {}
-    toast(cur ? '⏹ 本站已关闭自动播放（重载后生效）' : '▶️ 本站已开启自动播放（重载后生效）');
+    var cur = siteState();
+    var next = cur === 'on' ? '0' : '1';
+    try { localStorage.setItem(AP_KEY, next); } catch (err) {}
+    toast(next === '0'
+      ? '⏹ 本站已关闭「自动播放/自动定位」（快捷键仍可用）'
+      : '▶️ 本站已开启「自动播放/自动定位」');
   }, true);
 })();

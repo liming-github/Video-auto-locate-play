@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.12.0
+// @version      1.13.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -12,7 +12,9 @@
 // @supportURL   https://github.com/liming-github/Video-auto-locate-play/issues
 // @match        *://*/*
 // @run-at       document-start
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function () {
@@ -21,7 +23,7 @@
   /* ======== 可调参数 ======== */
   var STEP = 10;          // 快进/快退秒数
   var VOL_STEP = 0.1;     // 音量步长
-  var SHOW_TOAST = true;  // 顶部提示
+  var SHOW_TOAST = false; // 屏幕提示（默认关闭，避免打扰；改 true 可开启）
   var AUTOPLAY = true;    // 自动播放页面里的视频
   var AUTOPLAY_MUTED = true; // 被浏览器拦截时先静音播放
   var MIN_SIZE = 150;     // 小于这个尺寸的 video 视为广告/装饰，不自动播放
@@ -32,6 +34,27 @@
 
   var toastEl = null, toastTimer = null;
   var AP_KEY = 'va_autoplay_' + location.hostname;
+  var USER_EXEMPT_KEY = 'va_user_exempt_hosts';
+
+  function gmGet(k) {
+    try { if (typeof GM_getValue === 'function') return GM_getValue(k, ''); } catch (e) {}
+    return '';
+  }
+  function gmSet(k, v) {
+    try { if (typeof GM_setValue === 'function') { GM_setValue(k, v); return true; } } catch (e) {}
+    return false;
+  }
+  function userExemptList() {
+    var raw = gmGet(USER_EXEMPT_KEY);
+    if (!raw) return [];
+    try { return JSON.parse(raw) || []; } catch (e) { return []; }
+  }
+  function saveUserExempt(list) {
+    gmSet(USER_EXEMPT_KEY, JSON.stringify(list));
+  }
+  function isUserExempt(host) {
+    return userExemptList().some(function (r) { return hostMatches(host, r); });
+  }
 
   // 自带完善播放体验的站点：默认不做自动播放/自动定位（快捷键仍然可用）
   var EXEMPT_HOSTS = [
@@ -49,7 +72,8 @@
 
   function hostExempt() {
     try {
-      return EXEMPT_HOSTS.some(function (r) { return hostMatches(location.hostname.toLowerCase(), r); });
+      var h = location.hostname.toLowerCase();
+      return EXEMPT_HOSTS.some(function (r) { return hostMatches(h, r); }) || isUserExempt(h);
     } catch (e) { return false; }
   }
 
@@ -484,6 +508,26 @@
     e.preventDefault(); e.stopPropagation();
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
   }
+
+  // 油猴菜单：把当前站点加入或移出「例外名单」
+  try {
+    if (typeof GM_registerMenuCommand === 'function') {
+      GM_registerMenuCommand('把本网站加入/移出「例外」(不自动播放/定位)', function () {
+        var h = location.hostname.toLowerCase();
+        var list = userExemptList();
+        var idx = list.findIndex(function (r) { return hostMatches(h, r); });
+        if (idx >= 0) {
+          list.splice(idx, 1);
+          saveUserExempt(list);
+          alert('已把 ' + h + ' 移出例外名单（恢复自动播放/定位）\n刷新页面生效');
+        } else {
+          list.push(h);
+          saveUserExempt(list);
+          alert('已把 ' + h + ' 加入例外名单（不自动播放/定位）\n刷新页面生效');
+        }
+      });
+    }
+  } catch (e) {}
 
   window.addEventListener('keydown', onKey, true);
   document.addEventListener('keydown', onKey, true);

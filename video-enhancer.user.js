@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.29.0
+// @version      1.31.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -171,11 +171,48 @@
     return topMost(list);
   }
 
+
+  // 点击：先让站点播放器处理；如果站点没反应，我们才补一次播放/暂停
+  function resolvePlayerFromClick(target) {
+    try {
+      if (!target || !target.tagName) return null;
+      if (target.tagName === 'VIDEO') return target;
+      var box = target.closest && target.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
+      if (!box) return null;
+      if (target.closest && target.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls')) return null;
+      return box.querySelector('video');
+    } catch (e) { return null; }
+  }
+
+  document.addEventListener('click', function (e) {
+    var v = resolvePlayerFromClick(e.target);
+    if (!v) return;
+    setActive(v);
+    var before = v.paused;
+    setTimeout(function () {
+      try {
+        if (v.paused === before) {           // 站点没处理
+          if (v.paused) { delete v.dataset.vaUserPausedAt; v.play().catch(function () {}); }
+          else { v.pause(); markUserPaused(v); }
+          window.__vaUserToggledAt = Date.now();
+          toast(v.paused ? '⏸ 暂停' : '▶️ 播放');
+        } else {
+          window.__vaUserToggledAt = Date.now();
+        }
+      } catch (err) {}
+    }, 80);
+  }, true);
+
   // 悬停到哪个视频就播放哪个，其它暂停（跨域 iframe 内的无法互相控制）
   document.addEventListener('mouseover', function (e) {
     try {
       var t = e.target;
       if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
+      // 只在"从视频外部进入"时才算悬停切换，避免在视频内部移动鼠标反复触发
+      if (e.relatedTarget && t.contains && t.contains(e.relatedTarget)) return;
+      // 用户刚手动暂停/播放过，2 秒内不再自动播放，避免"暂停后被鼠标一碰又播"
+      if (Date.now() - (window.__vaUserToggledAt || 0) < 2000) return;
+      if (userPausedRecently(t)) return;
       setActive(t);
       var list = vids();
       list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
@@ -385,6 +422,7 @@
       var h = v.clientHeight || v.videoHeight || 0;
       if (w < MIN_SIZE || h < MIN_SIZE) return;
       if (!v.paused && !v.ended) { v.dataset.vaTries = '0'; return; }
+      if (userPausedRecently(v)) { v.dataset.vaTries = '0'; return; }   // 用户手动暂停的，别自动拉起来
       // 首次发现：滚动到播放器（即使还没播起来）
       scrollToVideo(v);
       var tries = parseInt(v.dataset.vaTries || '0', 10);
@@ -466,6 +504,25 @@
   } catch (e) {}
 
   /* ---------- 快捷键 ---------- */
+
+  // 载入后主动尝试：若浏览器允许，直接把声音打开（不需要用户按键）
+  var autoUnmuteTries = 0;
+  function autoUnmuteAttempt() {
+    if (autoUnmuteTries >= 6) return;
+    autoUnmuteTries++;
+    try {
+      Array.prototype.slice.call(document.querySelectorAll('video')).forEach(function (v) {
+        if (v.dataset.vaUserMuted === '1') return;
+        if (v.paused) return;
+        if (v.muted || (v.volume || 0) === 0) {
+          v.muted = false;
+          if ((v.volume || 0) === 0) v.volume = 0.6;
+        }
+      });
+    } catch (e) {}
+    setTimeout(autoUnmuteAttempt, 700);
+  }
+
   // 按键/点击都是用户手势：立刻把"为自动播放而静音"的视频恢复声音
   var unmuteTries = 0;
   function tryUnmuteAll() {
@@ -503,6 +560,16 @@
       } catch (e) {}
     }, 120);
   }
+  function markUserPaused(v) {
+    try { v.dataset.vaUserPausedAt = String(Date.now()); } catch (e) {}
+  }
+  function userPausedRecently(v) {
+    try {
+      var t = parseInt(v.dataset.vaUserPausedAt || '0', 10);
+      return t && (Date.now() - t < 60000);   // 1 分钟内不自动恢复
+    } catch (e) { return false; }
+  }
+
   function onKey(e) {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (isTextEditable(e.target) || isTextEditable(document.activeElement)) return;
@@ -540,8 +607,8 @@
 
     if (isSpace) {
       stop(e);
-      if (v.paused || v.ended) { v.play().catch(function(){}); toast('▶️ 播放'); }
-      else { v.pause(); toast('⏸ 暂停'); }
+      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; v.play().catch(function(){}); toast('▶️ 播放'); }
+      else { v.pause(); markUserPaused(v); toast('⏸ 暂停'); }
       return;
     }
 
@@ -672,6 +739,8 @@
       });
     }
   } catch (e) {}
+
+  setTimeout(autoUnmuteAttempt, 1200);
 
   window.addEventListener('keydown', onKey, true);
   document.addEventListener('keydown', onKey, true);

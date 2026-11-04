@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.41.0
+// @version      1.42.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -184,6 +184,16 @@
       if (t && t.tagName === 'VIDEO') {
         window.__vaUserPausedOnce = true;
         window.__vaLastPauseAt = Date.now();
+        // 站点有些播放器会自己把暂停改回播放：1.5 秒内盯住这个视频，被播放就压回去
+        var target = t, until = Date.now() + 1500;
+        try { if (window.__vaPauseGuard) clearInterval(window.__vaPauseGuard); } catch (e) {}
+        var guard = setInterval(function () {
+          try {
+            if (Date.now() > until) { clearInterval(guard); return; }
+            if (!target.paused) target.pause();
+          } catch (err) { clearInterval(guard); }
+        }, 100);
+        window.__vaPauseGuard = guard;
       }
     } catch (err) {}
   }, true);
@@ -593,7 +603,7 @@
 
     if (isSpace) {
       stop(e);
-      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; window.__vaUserPausedOnce = false; window.__vaLastPauseAt = 0; v.play().catch(function(){}); toast('▶️ 播放'); }
+      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; window.__vaUserPausedOnce = false; window.__vaLastPauseAt = 0; try { clearInterval(window.__vaPauseGuard); } catch (e) {} v.play().catch(function(){}); toast('▶️ 播放'); }
       else { v.pause(); markUserPaused(v); toast('⏸ 暂停'); }
       return;
     }

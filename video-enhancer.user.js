@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.34.0
+// @version      1.35.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -606,11 +606,26 @@
     } catch (e) { return false; }
   }
 
+  // 检测 Vimium（它的 space+字母 前缀会和我们抢空格）
+  function vimiumPresent() {
+    try {
+      return !!(document.querySelector('.vimiumUI, #vimiumHUD, .vimiumReset, #vimiumFlash, .vimiumHintMarker') ||
+                document.documentElement.classList.contains('vimium'));
+    } catch (e) { return false; }
+  }
+
   function onKey(e) {
+    if (e.__vaHandled) return;
+    e.__vaHandled = true;
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (isTextEditable(e.target) || isTextEditable(document.activeElement)) return;
     // 任意按键都先尝试恢复声音（浏览器把按键视为用户手势）
     try { tryUnmuteAll(); } catch (err) {}
+    if (window.__vaSpacePending && !(e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space')) {
+      try { clearTimeout(window.__vaSpaceTimer); } catch (err) {}
+      window.__vaSpacePending = false;
+      return;
+    }
     var softEdit = isEditable(e.target) || isEditable(document.activeElement); // 含按钮/链接
 
     var k = e.key;
@@ -637,16 +652,32 @@
       return;
     }
 
+    // 空格：文本输入区之外都接管；装了 Vimium 时用 500ms 延迟区分"单独空格"和"空格+字母前缀"
+    if (isSpace) {
+      if (!v) return;
+      var doToggle = function () {
+        if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; v.play().catch(function(){}); toast('▶️ 播放'); }
+        else { selfPausing = true; v.pause(); selfPausing = false; markUserPaused(v); toast('⏸ 暂停'); }
+      };
+      if (vimiumPresent()) {
+        try { clearTimeout(window.__vaSpaceTimer); } catch (err) {}
+        window.__vaSpacePending = true;
+        window.__vaSpaceTimer = setTimeout(function () {
+          if (!window.__vaSpacePending) return;
+          window.__vaSpacePending = false;
+          doToggle();
+        }, 500);
+        return;
+      }
+      stop(e);
+      doToggle();
+      return;
+    }
+
     // 其余快捷键：焦点在按钮/链接上就让给页面；且必须真有 <video>
     if (softEdit) return;
     if (!v) return;
 
-    if (isSpace) {
-      stop(e);
-      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; v.play().catch(function(){}); toast('▶️ 播放'); }
-      else { selfPausing = true; v.pause(); selfPausing = false; markUserPaused(v); toast('⏸ 暂停'); }
-      return;
-    }
 
     if (isEsc) {
       var fsNow = document.fullscreenElement || document.webkitFullscreenElement;
@@ -778,8 +809,7 @@
 
   setTimeout(autoUnmuteAttempt, 1200);
 
-  window.addEventListener('keydown', onKey, true);
-  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('keydown', onKey, true);   // 只挂一处，避免同一按键被处理两次
 
   /* ---------- 站点开关：Shift+Alt+A 切换本站自动播放 ---------- */
   document.addEventListener('keydown', function (e) {

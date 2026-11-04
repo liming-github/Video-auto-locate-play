@@ -48,8 +48,7 @@ const key = (k, code) => {
 const results = [];
 const check = (name, cond) => results.push([name, cond]);
 
-// 1) 脚本不再吞掉点击：模拟站点自己的播放器点击仍然生效
-v1.play(); check('站点自身点击播放不受影响', v1.paused === false);
+v1.play(); check('初始可播放', v1.paused === false);
 v1.pause();
 // 3) 空格 -> 播放
 key(' ', 'Space');

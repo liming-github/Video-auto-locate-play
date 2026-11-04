@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.19.0
+// @version      1.28.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -152,16 +152,41 @@
     });
   }
 
+  var activeVid = null;
+
+  function topMost(list) {
+    return list.slice().sort(function (a, b) {
+      return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+    })[0];
+  }
+
+  function setActive(v) { if (v && v !== activeVid) activeVid = v; }
+
   function pickVideo() {
     var list = vids();
     if (!list.length) return null;
+    if (activeVid && list.indexOf(activeVid) >= 0) return activeVid;
     var playing = list.filter(function (v) { return !v.paused && !v.ended; });
-    if (playing.length) return playing[0];
-    list.sort(function (a, b) {
-      return (b.clientWidth * b.clientHeight) - (a.clientWidth * a.clientHeight);
-    });
-    return list[0];
+    if (playing.length) return topMost(playing);
+    return topMost(list);
   }
+
+  // 悬停到哪个视频就播放哪个，其它暂停（跨域 iframe 内的无法互相控制）
+  document.addEventListener('mouseover', function (e) {
+    try {
+      var t = e.target;
+      if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
+      setActive(t);
+      var list = vids();
+      list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
+      if (t.paused) { try { t.play().catch(function () {}); } catch (err) {} }
+      if (list.length > 1) {
+        setTimeout(function () {
+          list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
+        }, 400);
+      }
+    } catch (err) {}
+  }, true);
 
   function hudHost() {
     return document.fullscreenElement || document.webkitFullscreenElement || document.body || document.documentElement;
@@ -352,7 +377,10 @@
 
   function autoPlayAll() {
     if (!autoplayOn()) return;
-    vids().forEach(function (v) {
+    var ordered = vids().sort(function (a, b) {
+      return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+    });
+    ordered.forEach(function (v) {
       var w = v.clientWidth || v.videoWidth || 0;
       var h = v.clientHeight || v.videoHeight || 0;
       if (w < MIN_SIZE || h < MIN_SIZE) return;
@@ -484,6 +512,12 @@
       stop(e);
       (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
       toast('已退出全屏');
+      setTimeout(function () {
+        try {
+          var cur = pickVideo();
+          if (cur) { setActive(cur); cur.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }); }
+        } catch (err) {}
+      }, 260);
       return;
     }
 

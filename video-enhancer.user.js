@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.26.0
+// @version      1.27.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -214,30 +214,7 @@
     } catch (err) {}
   }, true);
 
-  // ---------- (2) 鼠标单击视频：播放 / 暂停 ----------
-  document.addEventListener('click', function (e) {
-    try {
-      var t = e.target;
-      if (!t || !t.tagName) return;
-      var vid = (t.tagName === 'VIDEO') ? t : null;
-      if (!vid) {
-        // 点到了封面/画面区域（不是控制条）也算
-        try {
-          var box = t.closest && t.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
-          if (box && !(t.closest && t.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls, [class*="control"]'))) {
-            vid = box.querySelector('video');
-          }
-        } catch (err) {}
-      }
-      if (!vid) return;
-      t = vid;
-      setActive(t);
-      var t2 = t;
-      try { e.stopPropagation(); e.preventDefault(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (err) {}
-      if (t2.paused || t2.ended) { try { t2.play().catch(function () {}); } catch (err) {} toast('▶️ 播放'); }
-      else { try { t2.pause(); } catch (err) {} toast('⏸ 暂停'); }
-    } catch (err) {}
-  }, true);
+  // 单击不再接管：交给站点播放器自己处理，避免吞掉它的播放/暂停按钮
 
   function hudHost() {
     return document.fullscreenElement || document.webkitFullscreenElement || document.body || document.documentElement;

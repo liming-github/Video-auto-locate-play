@@ -48,12 +48,9 @@ const key = (k, code) => {
 const results = [];
 const check = (name, cond) => results.push([name, cond]);
 
-// 1) 单击视频 -> 播放
-fire(v1, 'click');
-check('单击视频→播放', v1.paused === false);
-// 2) 再单击 -> 暂停
-fire(v1, 'click');
-check('再次单击→暂停', v1.paused === true);
+// 1) 脚本不再吞掉点击：模拟站点自己的播放器点击仍然生效
+v1.play(); check('站点自身点击播放不受影响', v1.paused === false);
+v1.pause();
 // 3) 空格 -> 播放
 key(' ', 'Space');
 check('空格→播放', v1.paused === false);
@@ -61,7 +58,7 @@ check('空格→播放', v1.paused === false);
 key(' ', 'Space');
 check('空格→暂停', v1.paused === true);
 // 5) 悬停第二个视频 -> 播放它、暂停第一个
-fire(v1, 'click'); // 让 v1 播放
+v1.play();
 fire(v2, 'mouseover');
 check('悬停切换→v2播放', v2.paused === false);
 check('悬停切换→v1暂停', v1.paused === true);

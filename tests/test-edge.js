@@ -25,8 +25,11 @@ const check = (n, c) => results.push([n, c]);
   doc.getElementById('poster').getBoundingClientRect = v.getBoundingClientRect;
   window.GM_getValue=()=>''; window.GM_setValue=()=>{}; window.GM_registerMenuCommand=()=>{}; window.alert=()=>{};
   window.eval(src);
+  // 模拟站点自身的点击处理器：脚本不应吞掉这个事件
+  let siteGotClick = false;
+  doc.querySelector('.ql-video').addEventListener('click', () => { siteGotClick = true; paused = false; });
   doc.getElementById('poster').dispatchEvent(new window.MouseEvent('click',{bubbles:true,cancelable:true}));
-  check('点击播放器封面→播放', paused === false);
+  check('脚本不吞点击，站点播放器能收到', siteGotClick === true && paused === false);
 }
 
 // 场景 B：无视频页面不滚动

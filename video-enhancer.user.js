@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.16.1
+// @version      1.17.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -353,14 +353,28 @@
       var vh = window.innerHeight || 800;
       var scrollY = window.scrollY || window.pageYOffset || 0;
 
-      function goto(el) {
+      function visible(el) {
         var r = el.getBoundingClientRect();
-        var top = r.top + scrollY;
-        // 已经大致在视野中就不动
-        if (r.height > 100 && r.bottom > 80 && r.top < vh - 80) { window.__vaBoxDone = 1; return true; }
-        window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.25)), behavior: 'smooth' });
-        window.__vaBoxDone = 1;
-        toast('⬇️ 已定位到播放器');
+        return r.bottom > 80 && r.top < vh - 80 && r.height > 40;
+      }
+
+      function goto(el) {
+        // 优先 scrollIntoView：能同时处理 window 滚动与内部滚动容器
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+        // 校验：等两次动画帧，仍未进入视野则用绝对位置兜底
+        var tries = window.__vaScrollTries || 0;
+        setTimeout(function () {
+          if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); return; }
+          var rect = el.getBoundingClientRect();
+          var top = rect.top + (window.scrollY || window.pageYOffset || 0);
+          window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
+          setTimeout(function () {
+            if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); }
+          }, 700);
+        }, 700);
+        // 允许最多重试 6 次（页面懒加载时容器位置会变）
+        window.__vaScrollTries = tries + 1;
+        if (window.__vaScrollTries >= 6) window.__vaBoxDone = 1;
         return true;
       }
 
@@ -480,7 +494,7 @@
       v.dataset.vaUserMuted = v.muted ? '1' : '0';
       delete v.dataset.vaAutoMuted;
       if (!v.muted && v.volume === 0) v.volume = 0.5;
-      toastVol(v.muted ? '🔇 已静音' : '🔊 已开声音');
+      toastRaw(v.muted ? '🔇 已静音' : '🔊 已开声音');
       return;
     }
 
@@ -507,7 +521,7 @@
       v.volume = vol;
       v.muted = (vol === 0);
       var n = Math.round(vol * 10);
-      toastVol((up ? '🔊 +' : '🔉 -') + Math.round(VOL_STEP * 100) + '%   ' + '█'.repeat(n) + '░'.repeat(10 - n) + '  ' + Math.round(vol * 100) + '%');
+      toastRaw((up ? '🔊 +' : '🔉 -') + Math.round(VOL_STEP * 100) + '%   ' + '█'.repeat(n) + '░'.repeat(10 - n) + '  ' + Math.round(vol * 100) + '%');
     }
   }
 

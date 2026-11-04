@@ -59,3 +59,7 @@
 
 ## 1.16.1
 - 内置默认例外扩充到 38 条（新增咪咕/搜狐/PPTV/乐视/1905/豆瓣/微博/知乎/西瓜/HBO Max/Max/Paramount+/Peacock/Twitch/Vimeo/SoundCloud/Tidal/Deezer）
+
+## 1.17.0
+- 音量提示强制显示（不受其它开关影响）
+- 播放器定位改用 scrollIntoView 并校验重试，修复超长页面滚不到位

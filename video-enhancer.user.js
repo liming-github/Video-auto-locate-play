@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.54.0
+// @version      1.53.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -564,59 +564,62 @@
     tryPlay(target);
   }
 
-  // 兜底定位：只有页面上确实存在"可播放的播放器"时才滚动
-  // 判据（不看域名/白名单，只看页面事实）：
-  //   a) 存在 <video>（含同源 iframe / Shadow DOM 内）→ 由 scrollToVideo 负责
-  //   b) 存在播放器容器，且容器内真的有 <video> 或带 src 的 <iframe>
-  //   c) 页面里有 ≥300×180 且带 src 的 iframe（跨域播放器常见）
-  function findPlayableTarget() {
-    try { if (vids().length) return null; } catch (e) {}
-
-    var sels = ['.ql-video', '.xgplayer', '#xgplayer', '.dplayer', '#dplayer', '.art-video-player',
-                '.video-js', '.plyr', '#player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
-                '[class*="video-container"]'];
-    for (var i = 0; i < sels.length; i++) {
-      var list;
-      try { list = document.querySelectorAll(sels[i]); } catch (e) { continue; }
-      for (var j = 0; j < list.length; j++) {
-        var el = list[j];
-        if (!el || el.tagName === 'VIDEO') continue;
-        if (!el.querySelector('video, iframe[src]')) continue;
-        return el;
-      }
-    }
-    // 不再把"页面里任意大 iframe"当作播放器（很多页面有广告/嵌入 iframe，会误滚）
-    // 只有明确的播放器容器内装着 video/iframe 才会上面的循环里被命中
-    return null;
-  }
-
+  // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
       if (siteState() !== 'on') return;
       if (window.__vaBoxDone || window.__vaLocatedOnce) return;
-
-      var el = findPlayableTarget();
-      if (!el) return;                       // 没有播放器 → 一步都不滚
-
       var vh = window.innerHeight || 800;
-      var r = el.getBoundingClientRect();
-      if (r.bottom > 80 && r.top < vh - 80) { window.__vaBoxDone = 1; window.__vaLocatedOnce = true; return; }
+      var scrollY = window.scrollY || window.pageYOffset || 0;
 
-      try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
-      window.__vaBoxDone = 1;
-      window.__vaLocatedOnce = true;
-      toast('⬇️ 已定位到播放器');
+      function visible(el) {
+        var r = el.getBoundingClientRect();
+        return r.bottom > 80 && r.top < vh - 80 && r.height > 40;
+      }
 
-      setTimeout(function () {
-        try {
-          var rr = el.getBoundingClientRect();
-          if (!(rr.bottom > 80 && rr.top < vh - 80)) {
-            var top = rr.top + (window.scrollY || window.pageYOffset || 0);
-            window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.25)), behavior: 'smooth' });
-          }
-        } catch (e) {}
-      }, 600);
+      function goto(el) {
+        // 优先 scrollIntoView：能同时处理 window 滚动与内部滚动容器
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+        // 校验：等两次动画帧，仍未进入视野则用绝对位置兜底
+        var tries = window.__vaScrollTries || 0;
+        setTimeout(function () {
+          if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); return; }
+          var rect = el.getBoundingClientRect();
+          var top = rect.top + (window.scrollY || window.pageYOffset || 0);
+          window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
+          setTimeout(function () {
+            if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); }
+          }, 700);
+        }, 700);
+        // 允许最多重试 6 次（页面懒加载时容器位置会变）
+        window.__vaScrollTries = tries + 1;
+        if (window.__vaScrollTries >= 6) window.__vaBoxDone = 1;
+        return true;
+      }
+
+      // 1) 精确选择器（即使高度为 0，也用 offsetTop 定位）
+      var exact = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
+                   '#player', '.player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
+                   '[class*="video-container"]', '[class*="video-box"]', 'iframe[src*="play"]', 'iframe'];
+      for (var i = 0; i < exact.length; i++) {
+        var el = null;
+        try { el = document.querySelector(exact[i]); } catch (e) {}
+        if (el && el.tagName !== 'VIDEO') { if (goto(el)) return; }
+      }
+
+      // 2) 通用兜底：面积最大、宽≥260 的块
+      var best = null, bestArea = 0;
+      var list;
+      try { list = document.querySelectorAll('.article-content div, .post-content div, article div, main div'); } catch (e) { list = []; }
+      for (var j = 0; j < list.length && j < 800; j++) {
+        var d = list[j], rr = d.getBoundingClientRect();
+        if (rr.width >= 260 && rr.height >= 150) {
+          var a = rr.width * rr.height;
+          if (a > bestArea) { bestArea = a; best = d; }
+        }
+      }
+      if (best) goto(best);
     } catch (e) {}
   }
 

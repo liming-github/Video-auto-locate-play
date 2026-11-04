@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.15.0
+// @version      1.16.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -23,7 +23,8 @@
   /* ======== 可调参数 ======== */
   var STEP = 10;          // 快进/快退秒数
   var VOL_STEP = 0.1;     // 音量步长
-  var SHOW_TOAST = false; // 屏幕提示（默认关闭，避免打扰；改 true 可开启）
+  var SHOW_TOAST = false;  // 快进/快退等提示（默认关闭）
+  var VOLUME_TOAST = true; // 音量提示（默认开启）
   var AUTOPLAY = true;    // 自动播放页面里的视频
   var AUTOPLAY_MUTED = true; // 被浏览器拦截时先静音播放
   var MIN_SIZE = 150;     // 小于这个尺寸的 video 视为广告/装饰，不自动播放
@@ -158,8 +159,7 @@
     return list[0];
   }
 
-  function toast(text) {
-    if (!SHOW_TOAST) return;
+  function toastRaw(text) {
     try {
       if (!toastEl) {
         toastEl = document.createElement('div');
@@ -215,6 +215,9 @@
       else toast('⛶ 全屏');
     } catch (e) { toast('全屏失败'); }
   }
+
+  function toast(text) { if (SHOW_TOAST) toastRaw(text); }
+  function toastVol(text) { if (VOLUME_TOAST) toastRaw(text); }
 
   function fmt(s) {
     if (!isFinite(s)) return '--:--';
@@ -287,7 +290,7 @@
           changed++;
         }
       });
-      if (changed) toast('🔊 已自动开启声音（按 M 可静音）');
+      if (changed) toastVol('🔊 已自动开启声音（按 M 可静音）');
       document.removeEventListener('pointerdown', unlock, true);
       document.removeEventListener('click', unlock, true);
       document.removeEventListener('keydown', unlock, true);
@@ -473,7 +476,7 @@
       v.dataset.vaUserMuted = v.muted ? '1' : '0';
       delete v.dataset.vaAutoMuted;
       if (!v.muted && v.volume === 0) v.volume = 0.5;
-      toast(v.muted ? '🔇 已静音' : '🔊 已开声音');
+      toastVol(v.muted ? '🔇 已静音' : '🔊 已开声音');
       return;
     }
 
@@ -500,7 +503,7 @@
       v.volume = vol;
       v.muted = (vol === 0);
       var n = Math.round(vol * 10);
-      toast((up ? '🔊 +' : '🔉 -') + Math.round(VOL_STEP * 100) + '%   ' + '█'.repeat(n) + '░'.repeat(10 - n) + '  ' + Math.round(vol * 100) + '%');
+      toastVol((up ? '🔊 +' : '🔉 -') + Math.round(VOL_STEP * 100) + '%   ' + '█'.repeat(n) + '░'.repeat(10 - n) + '  ' + Math.round(vol * 100) + '%');
     }
   }
 
@@ -542,8 +545,8 @@
       // ② 查看名单（内置 + 自定义）
       GM_registerMenuCommand('📋 查看例外名单', function () {
         var u = userExemptList();
-        alert('【内置例外（默认不自动播放）】\n' + EXEMPT_HOSTS.join('、') +
-              '\n\n【我自定义的例外（可在菜单里逐条移除）】\n' + (u.length ? u.join('\n') : '（暂无）'));
+        alert('【我添加的例外（可在菜单里逐条移除）】\n' + (u.length ? u.join('\n') : '（暂无）') +
+              '\n\n注：B站、YouTube 等主流站是内置默认例外，不在此列表中，也无法添加或移除。');
       });
 
       // ③ 逐条移除（每条一个菜单项，带 ➖）

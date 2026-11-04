@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.16.0
+// @version      1.16.1
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -59,12 +59,16 @@
 
   // 自带完善播放体验的站点：默认不做自动播放/自动定位（快捷键仍然可用）
   var EXEMPT_HOSTS = [
-    'bilibili.com', 'b23.tv',
-    'youtube.com', 'youtu.be',
+    'bilibili.com', 'b23.tv', 'youtube.com', 'youtu.be',
     'netflix.com', 'disneyplus.com', 'primevideo.com', 'hulu.com',
-    'iqiyi.com', 'v.qq.com', 'youku.com', 'mgtv.com', 'bilibili.tv',
-    'douyin.com', 'kuaishou.com', 'xiaohongshu.com',
-    'spotify.com', 'music.apple.com', 'music.163.com', 'y.qq.com'
+    'iqiyi.com', 'v.qq.com', 'youku.com', 'mgtv.com',
+    'bilibili.tv', 'douyin.com', 'kuaishou.com', 'xiaohongshu.com',
+    'spotify.com', 'music.apple.com', 'music.163.com', 'y.qq.com',
+    'migu.cn', 'sohu.com', 'pptv.com', 'le.com',
+    '1905.com', 'douban.com', 'weibo.com', 'zhihu.com',
+    'ixigua.com', 'hbomax.com', 'max.com', 'paramountplus.com',
+    'peacocktv.com', 'twitch.tv', 'vimeo.com', 'soundcloud.com',
+    'tidal.com', 'deezer.com'
   ];
 
   function hostMatches(host, rule) {

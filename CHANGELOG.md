@@ -56,3 +56,6 @@
 ## 1.16.0
 - 例外名单只列自定义站点；B站/YouTube 全子域默认例外且不可加入
 - 音量提示独立开关（默认开），快进提示保持关闭
+
+## 1.16.1
+- 内置默认例外扩充到 38 条（新增咪咕/搜狐/PPTV/乐视/1905/豆瓣/微博/知乎/西瓜/HBO Max/Max/Paramount+/Peacock/Twitch/Vimeo/SoundCloud/Tidal/Deezer）

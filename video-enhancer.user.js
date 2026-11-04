@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.17.0
+// @version      1.18.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -163,61 +163,55 @@
     return list[0];
   }
 
-  function toastRaw(text) {
+  // ===== 屏幕提示（macOS 风格半透明 HUD；自动挂到全屏元素内，全屏也能显示） =====
+  var toastEl = null, toastTimer = null;
+
+  function hudHost() {
+    return document.fullscreenElement || document.webkitFullscreenElement || document.body || document.documentElement;
+  }
+
+  function ensureToast() {
+    if (!toastEl) {
+      toastEl = document.createElement('div');
+      toastEl.style.cssText = [
+        'position:fixed', 'left:50%', 'top:14%', 'transform:translateX(-50%)',
+        'padding:12px 18px', 'border-radius:16px',
+        'background:rgba(28,28,30,.55)',
+        '-webkit-backdrop-filter:blur(16px) saturate(160%)',
+        'backdrop-filter:blur(16px) saturate(160%)',
+        'box-shadow:0 8px 28px rgba(0,0,0,.28)',
+        'color:#fff', 'font:600 15px/1.3 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
+        'z-index:2147483647', 'pointer-events:none', 'opacity:0',
+        'transition:opacity .18s ease', 'white-space:nowrap',
+        'display:flex', 'align-items:center', 'gap:10px'
+      ].join(';');
+    }
+    var host = hudHost();
+    if (toastEl.parentNode !== host) { try { host.appendChild(toastEl); } catch (e) {} }
+  }
+
+  function toastRaw(text, opts) {
     try {
-      if (!toastEl) {
-        toastEl = document.createElement('div');
-        toastEl.style.cssText = [
-          'position:fixed', 'left:50%', 'top:12%', 'transform:translateX(-50%)',
-          'padding:8px 16px', 'border-radius:10px', 'background:rgba(0,0,0,.75)',
-          'color:#fff', 'font:600 16px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif',
-          'z-index:2147483647', 'pointer-events:none', 'opacity:0',
-          'transition:opacity .15s', 'white-space:nowrap'
-        ].join(';');
-        (document.body || document.documentElement).appendChild(toastEl);
+      ensureToast();
+      if (opts && opts.type === 'volume') {
+        var lv = Math.max(0, Math.min(1, opts.level || 0));
+        var segs = 16;
+        var on = Math.round(lv * segs);
+        var bars = '';
+        for (var i = 0; i < segs; i++) {
+          bars += '<span style="display:inline-block;width:4px;height:' + (8 + i * 0.55) + 'px;margin-right:3px;border-radius:2px;background:' + (i < on ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.25)') + '"></span>';
+        }
+        var icon = (opts.level || 0) === 0 ? '🔇' : ((opts.level || 0) < 0.4 ? '🔉' : '🔊');
+        toastEl.innerHTML = '<span style="font-size:18px;line-height:1">' + icon + '</span>' +
+          '<span style="display:inline-flex;align-items:flex-end">' + bars + '</span>' +
+          '<span style="font-size:13px;opacity:.85;min-width:34px;text-align:right">' + Math.round(lv * 100) + '%</span>';
+      } else {
+        toastEl.textContent = text;
       }
-      toastEl.textContent = text;
       toastEl.style.opacity = '1';
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { toastEl.style.opacity = '0'; }, 900);
+      toastTimer = setTimeout(function () { if (toastEl) toastEl.style.opacity = '0'; }, 900);
     } catch (e) {}
-  }
-
-  function scrollToVideo(v) {
-    if (!AUTO_SCROLL || !v) return;
-    try {
-      if (v.dataset.vaScrolled) return;
-      var r = v.getBoundingClientRect();
-      var vh = window.innerHeight || document.documentElement.clientHeight;
-      var offscreen = (r.bottom < 80) || (r.top > vh - 80);
-      if (SCROLL_IF_OFFSCREEN && !offscreen) { v.dataset.vaScrolled = '1'; return; }
-      v.dataset.vaScrolled = '1';
-      v.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      toast('⬇️ 已定位到视频');
-    } catch (e) {}
-  }
-
-  function toggleFullscreen(v, altEl) {
-    try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
-        toast('退出全屏');
-        return;
-      }
-      var el = v || altEl;
-      if (!el) { toast('没有可全屏的播放器'); return; }
-      var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-      if (!fn) {
-        var wrap = (el.closest && el.closest('div,video')) || el.parentElement;
-        fn = wrap && (wrap.requestFullscreen || wrap.webkitRequestFullscreen);
-        el = wrap;
-      }
-      if (!fn) { toast('这个播放器不支持全屏 API'); return; }
-      if (v && el === v && v.controls === false) { v.controls = true; }
-      var p = fn.call(el, { navigationUI: 'hide' });
-      if (p && p.then) p.then(function(){ toast('⛶ 全屏'); }).catch(function(){ toast('全屏被浏览器拦截，先点一下页面再按 F'); });
-      else toast('⛶ 全屏');
-    } catch (e) { toast('全屏失败'); }
   }
 
   function toast(text) { if (SHOW_TOAST) toastRaw(text); }
@@ -521,7 +515,7 @@
       v.volume = vol;
       v.muted = (vol === 0);
       var n = Math.round(vol * 10);
-      toastRaw((up ? '🔊 +' : '🔉 -') + Math.round(VOL_STEP * 100) + '%   ' + '█'.repeat(n) + '░'.repeat(10 - n) + '  ' + Math.round(vol * 100) + '%');
+      toastRaw('', { type: 'volume', level: vol });
     }
   }
 

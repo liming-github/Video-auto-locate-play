@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.27.0
+// @version      1.19.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -152,69 +152,16 @@
     });
   }
 
-  var activeVid = null;
-
-  function inDoc(v) {
-    try { return v && (document.contains(v) || (v.ownerDocument && v.ownerDocument.defaultView && !v.ownerDocument.defaultView.closed)); } catch (e) { return false; }
-  }
-
-  function topMost(list) {
-    list = list.slice().sort(function (a, b) {
-      var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-      return ra.top - rb.top;
-    });
-    return list[0];
-  }
-
   function pickVideo() {
     var list = vids();
     if (!list.length) return null;
-    // 1) 用户悬停/正在操作的那个优先
-    if (activeVid && inDoc(activeVid) && list.indexOf(activeVid) >= 0) return activeVid;
-    // 2) 正在播放的
     var playing = list.filter(function (v) { return !v.paused && !v.ended; });
-    if (playing.length) return topMost(playing);
-    // 3) 默认：页面上最靠上的第一个
-    return topMost(list);
+    if (playing.length) return playing[0];
+    list.sort(function (a, b) {
+      return (b.clientWidth * b.clientHeight) - (a.clientWidth * a.clientHeight);
+    });
+    return list[0];
   }
-
-  function setActive(v) {
-    if (!v || v === activeVid) return;
-    activeVid = v;
-  }
-
-  // 鼠标悬停到某个视频 → 设为活动视频；多视频时暂停其它、播放它
-  document.addEventListener('mouseover', function (e) {
-    try {
-      var t = e.target;
-      if (!t || !t.tagName) return;
-      var vid = (t.tagName === 'VIDEO') ? t : null;
-      if (!vid) {
-        // 点到了封面/画面区域（不是控制条）也算
-        try {
-          var box = t.closest && t.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
-          if (box && !(t.closest && t.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls, [class*="control"]'))) {
-            vid = box.querySelector('video');
-          }
-        } catch (err) {}
-      }
-      if (!vid) return;
-      t = vid;
-      setActive(t);
-      var t2 = t;
-      var list = vids();
-      list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-      // 再补一刀：其它视频在 0.4s 内若自己又开始播（站点自动播放），继续压住
-      if (list.length > 1) {
-        setTimeout(function () {
-          list.forEach(function (o) { if (o !== activeVid && !o.paused) { try { o.pause(); } catch (err) {} } });
-        }, 400);
-        if (t.paused) { try { t.play().catch(function () {}); } catch (err) {} }
-      }
-    } catch (err) {}
-  }, true);
-
-  // 单击不再接管：交给站点播放器自己处理，避免吞掉它的播放/暂停按钮
 
   function hudHost() {
     return document.fullscreenElement || document.webkitFullscreenElement || document.body || document.documentElement;
@@ -405,10 +352,7 @@
 
   function autoPlayAll() {
     if (!autoplayOn()) return;
-    var ordered = vids().sort(function (a, b) {
-      return (a.getBoundingClientRect().top) - (b.getBoundingClientRect().top);
-    });
-    ordered.forEach(function (v) {
+    vids().forEach(function (v) {
       var w = v.clientWidth || v.videoWidth || 0;
       var h = v.clientHeight || v.videoHeight || 0;
       if (w < MIN_SIZE || h < MIN_SIZE) return;
@@ -422,64 +366,62 @@
     });
   }
 
-  // 仅当页面确实存在可播放视频（或装了播放器的容器）时才定位；否则完全不动
+  // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
       if (siteState() !== 'on') return;
       if (window.__vaBoxDone) return;
+      var vh = window.innerHeight || 800;
+      var scrollY = window.scrollY || window.pageYOffset || 0;
 
-      // ① 页面里有真实 <video>（含同源 iframe 内）：交给 scrollToVideo 处理
-      var list = vids();
-      if (list.length) { return; }
-
-      // ② 播放器容器：只有内部真的装了 video 或 iframe 才算
-      var sels = ['.ql-video', '.dplayer', '.xgplayer', '#xgplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
-                  '#player', '[class*="video-wrap"]', '[class*="video-wrapper"]', '[class*="video-container"]'];
-      for (var i = 0; i < sels.length; i++) {
-        var el = null;
-        try { el = document.querySelector(sels[i]); } catch (e) { continue; }
-        if (!el) continue;
-        // 必须真的装着播放器（video 或带 src 的 iframe），避免把装饰性同名容器当成播放器
-        if (!el.querySelector('video, iframe[src]')) continue;
+      function visible(el) {
         var r = el.getBoundingClientRect();
-        var vh = window.innerHeight || 800;
-        if (r.bottom > 90 && r.top < vh - 90) { window.__vaBoxDone = 1; return; }
-        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
-        setTimeout(function () {
-          try {
-            var rr = el.getBoundingClientRect();
-            if (!(rr.bottom > 90 && rr.top < vh - 90)) {
-              var top = rr.top + (el.ownerDocument.defaultView.pageYOffset || 0);
-              el.ownerDocument.defaultView.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
-            }
-          } catch (e) {}
-        }, 700);
-        window.__vaBoxDone = 1;
-        toast('⬇️ 已定位到播放器');
-        return;
-      }
-      // ③ 跨域播放器：页面里有一个足够大的 iframe（≥640×360）→ 滚到它
-      var big = null, bigArea = 0;
-      try {
-        document.querySelectorAll('iframe').forEach(function (f) {
-          var r = f.getBoundingClientRect();
-          var a = r.width * r.height;
-          if (r.width >= 640 && r.height >= 360 && a > bigArea) { bigArea = a; big = f; }
-        });
-      } catch (e) {}
-      if (big) {
-        var vb = window.innerHeight || 800;
-        var rb = big.getBoundingClientRect();
-        if (!(rb.bottom > 90 && rb.top < vb - 90)) {
-          try { big.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
-          toast('⬇️ 已定位到播放器');
-        }
-        window.__vaBoxDone = 1;
-        return;
+        return r.bottom > 80 && r.top < vh - 80 && r.height > 40;
       }
 
-      // ④ 什么都没有 → 不滚动
+      function goto(el) {
+        // 优先 scrollIntoView：能同时处理 window 滚动与内部滚动容器
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+        // 校验：等两次动画帧，仍未进入视野则用绝对位置兜底
+        var tries = window.__vaScrollTries || 0;
+        setTimeout(function () {
+          if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); return; }
+          var rect = el.getBoundingClientRect();
+          var top = rect.top + (window.scrollY || window.pageYOffset || 0);
+          window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
+          setTimeout(function () {
+            if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); }
+          }, 700);
+        }, 700);
+        // 允许最多重试 6 次（页面懒加载时容器位置会变）
+        window.__vaScrollTries = tries + 1;
+        if (window.__vaScrollTries >= 6) window.__vaBoxDone = 1;
+        return true;
+      }
+
+      // 1) 精确选择器（即使高度为 0，也用 offsetTop 定位）
+      var exact = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
+                   '#player', '.player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
+                   '[class*="video-container"]', '[class*="video-box"]', 'iframe[src*="play"]', 'iframe'];
+      for (var i = 0; i < exact.length; i++) {
+        var el = null;
+        try { el = document.querySelector(exact[i]); } catch (e) {}
+        if (el && el.tagName !== 'VIDEO') { if (goto(el)) return; }
+      }
+
+      // 2) 通用兜底：面积最大、宽≥260 的块
+      var best = null, bestArea = 0;
+      var list;
+      try { list = document.querySelectorAll('.article-content div, .post-content div, article div, main div'); } catch (e) { list = []; }
+      for (var j = 0; j < list.length && j < 800; j++) {
+        var d = list[j], rr = d.getBoundingClientRect();
+        if (rr.width >= 260 && rr.height >= 150) {
+          var a = rr.width * rr.height;
+          if (a > bestArea) { bestArea = a; best = d; }
+        }
+      }
+      if (best) goto(best);
     } catch (e) {}
   }
 
@@ -525,18 +467,16 @@
       return;
     }
 
-    // 空格：只要不在文本输入区，就接管播放/暂停（不受按钮/链接焦点影响）
+    // 其余快捷键：焦点在按钮/链接上就让给页面；且必须真有 <video>
+    if (softEdit) return;
+    if (!v) return;
+
     if (isSpace) {
-      if (!v) return;
       stop(e);
       if (v.paused || v.ended) { v.play().catch(function(){}); toast('▶️ 播放'); }
       else { v.pause(); toast('⏸ 暂停'); }
       return;
     }
-
-    // 其余快捷键：焦点在按钮/链接上就让给页面；且必须真有 <video>
-    if (softEdit) return;
-    if (!v) return;
 
     if (isEsc) {
       var fsNow = document.fullscreenElement || document.webkitFullscreenElement;
@@ -544,13 +484,6 @@
       stop(e);
       (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
       toast('已退出全屏');
-      // 退出后回到"当前活动视频"的位置，而不是页面顶部或第一个视频
-      setTimeout(function () {
-        try {
-          var cur = pickVideo();
-          if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        } catch (err) {}
-      }, 260);
       return;
     }
 
@@ -670,9 +603,9 @@
   window.addEventListener('keydown', onKey, true);
   document.addEventListener('keydown', onKey, true);
 
-  /* ---------- 站点开关：Ctrl+Shift+Alt+A 切换本站自动播放 ---------- */
+  /* ---------- 站点开关：Shift+Alt+A 切换本站自动播放 ---------- */
   document.addEventListener('keydown', function (e) {
-    if (!(e.ctrlKey && e.shiftKey && e.altKey && (e.key === 'a' || e.key === 'A'))) return;
+    if (!(e.shiftKey && e.altKey && (e.key === 'a' || e.key === 'A'))) return;
     var cur = siteState();
     var next = cur === 'on' ? '0' : '1';
     try { localStorage.setItem(AP_KEY, next); } catch (err) {}

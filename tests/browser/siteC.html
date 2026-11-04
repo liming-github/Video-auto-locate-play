@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>C</title>
+<body style="margin:0;height:3000px">
+<div style="height:900px"><video id="v0" width="640" height="360" muted playsinline></video></div>
+<div style="height:900px"><video id="v1" width="640" height="360" muted playsinline></video></div>
+<div style="height:900px"><video id="v2" width="640" height="360" muted playsinline></video></div>
+<script>
+  const vs = [...document.querySelectorAll('video')];
+  vs.forEach(v => v.addEventListener('click', () => { v.paused ? v.play() : v.pause(); }));
+  // 模拟 91porna：各播放器互相独立，一开始全都在播
+  Promise.all(vs.map(v => v.play().catch(()=>{})));
+  window.__state = () => vs.map(v => v.paused);
+</script></body>

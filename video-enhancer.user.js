@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.49.0
+// @version      1.50.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -215,8 +215,7 @@
         });
       } catch (e) {}
       PauseShield.blocked = [];
-      window.__vaUserPausedOnce = false;
-      window.__vaLastPauseAt = 0;
+      // 注意：不在这里清除 __vaUserPausedOnce，否则一次点击就会让自动播放复活
     }
   };
 
@@ -249,13 +248,15 @@
         if (playing.length) prev = playing[0];
       }
       setActive(t);
+      try { clearTimeout(window.__vaHoverTimer); } catch (e) {}
       window.__vaHoverTimer = setTimeout(function () {
+        // 用户刚刚有操作（点击/按键）就不播，避免"点了暂停又被悬停播起来"
+        if (Date.now() - (window.__vaLastInput || 0) < 900) return;
         try {
-          if (prev && prev !== t && !prev.paused) {
-            selfPausing = true;
-            try { prev.pause(); } catch (e) {}
-            selfPausing = false;
-          }
+          // 悬停到哪个视频，就把其它正在播的全部暂停（之前只暂停"上一个"，其它仍在播）
+          selfPausing = true;
+          vids().forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (e) {} } });
+          selfPausing = false;
           if (t.paused) {
             window.__vaLastPauseAt = 0;
             window.__vaLastInput = Date.now();
@@ -460,6 +461,7 @@
   function autoPlayAll() {
     if (!autoplayOn()) return;
     if (window.__vaUserPausedOnce) return;      // 用户暂停过 → 本页不再自动播放
+    if (Date.now() - (window.__vaLastInput || 0) < 1500) return;   // 用户刚点过，先别自动播
     var list = vids();
     if (!list.length) return;
     var target = (activeVid && list.indexOf(activeVid) >= 0) ? activeVid : list.slice().sort(function (a, b) {

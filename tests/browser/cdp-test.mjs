@@ -65,6 +65,7 @@ await runScenario('A', 'http://127.0.0.1:8898/siteA.html', async (c) => {
   await clickAt(c, 320, 180);            // 再点 → 恢复播放
   await sleep(400);
   const resumed = await evalJS(c, 'document.getElementById("v").paused');
+  console.log('  A 恢复后 paused=', resumed, 'blocked=', await evalJS(c,'window.__blocked()'), 'log=', JSON.stringify(await evalJS(c,'window.__log.slice(-4)'))); 
   check('A 单视频：再次点击能恢复播放', resumed === false);
 });
 
@@ -82,15 +83,45 @@ await runScenario('B', 'http://127.0.0.1:8898/siteB.html', async (c) => {
   check('B 多视频：第三个不受影响（仍暂停）', s1[2] === true);
 
   await clickAt(c, 320, 1400);           // 点击第二个 → 暂停
-  await sleep(1200);
+  await sleep(300);
+  console.log('  B +300ms:', JSON.stringify(await evalJS(c,'window.__state()')),
+    'flags:', await evalJS(c,'[!!window.__vaUserPausedOnce, window.__vaLastPauseAt||0, window.__vaLastInput||0].join("|")'));
+  console.log('  B play log:', JSON.stringify(await evalJS(c,'window.__log.slice(-6)')));
+  await sleep(900);
   const s2 = await evalJS(c, 'window.__state()');
   check('B 多视频：点击暂停第二个后保持暂停', s2[1] === true);
 
   await clickAt(c, 320, 1400);           // 再点 → 恢复
-  await sleep(900);
+  await sleep(200); console.log('  B 恢复 +200ms:', JSON.stringify(await evalJS(c,'window.__state()')));
+  await sleep(700);
   const s3 = await evalJS(c, 'window.__state()');
   console.log('  B 二次点击后:', JSON.stringify(s3));
   check('B 多视频：再次点击能恢复播放', s3[1] === false);
+});
+
+
+// 场景 C：三个独立播放器全部在播（模拟 91porna 真实情况）
+await runScenario('C', 'http://127.0.0.1:8898/siteC.html', async (c) => {
+  const s0 = await evalJS(c, 'window.__state()');
+  console.log('  C 初始:', JSON.stringify(s0));
+  check('C 初始：三个都在播', JSON.stringify(s0) === JSON.stringify([false, false, false]));
+
+  await moveTo(c, 100, 100); await sleep(200);
+  await moveTo(c, 320, 1100); await sleep(1500);      // 悬停第二个
+  const s1 = await evalJS(c, 'window.__state()');
+  console.log('  C 悬停第二个后:', JSON.stringify(s1));
+  check('C 悬停第二个：第二个播放', s1[1] === false);
+  check('C 悬停第二个：其它两个暂停', s1[0] === true && s1[2] === true);
+
+  await clickAt(c, 320, 1100); await sleep(1200);     // 点击暂停第二个
+  const s2 = await evalJS(c, 'window.__state()');
+  console.log('  C 点击暂停后:', JSON.stringify(s2));
+  check('C 点击暂停第二个：保持暂停', s2[1] === true);
+
+  await clickAt(c, 320, 1100); await sleep(800);      // 再点恢复
+  const s3 = await evalJS(c, 'window.__state()');
+  console.log('  C 再次点击后:', JSON.stringify(s3));
+  check('C 再次点击：恢复播放', s3[1] === false);
 });
 
 let pass = 0;

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.40.0
+// @version      1.41.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -173,38 +173,9 @@
 
 
   // 点击：先让站点播放器处理；如果站点没反应，我们才补一次播放/暂停
-  function resolvePlayerFromClick(target) {
-    try {
-      if (!target || !target.tagName) return null;
-      if (target.tagName === 'VIDEO') return target;
-      var box = target.closest && target.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
-      if (!box) return null;
-      if (target.closest && target.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls')) return null;
-      return box.querySelector('video');
-    } catch (e) { return null; }
-  }
+  // 点击完全交给站点播放器处理（脚本不介入，避免站点的 pointerdown 已暂停、我们 click 又补一刀把它播回去）
 
-  document.addEventListener('click', function (e) {
-    var v = resolvePlayerFromClick(e.target);
-    if (!v) return;
-    setActive(v);
-    var before = v.paused;
-    setTimeout(function () {
-      try {
-        if (v.paused === before) {           // 站点没处理
-          if (v.paused) { delete v.dataset.vaUserPausedAt; v.play().catch(function () {}); }
-          else { v.pause(); markUserPaused(v); }
-          window.__vaUserToggledAt = Date.now();
-          toast(v.paused ? '⏸ 暂停' : '▶️ 播放');
-        } else {
-          window.__vaUserToggledAt = Date.now();
-        }
-      } catch (err) {}
-    }, 80);
-  }, true);
-
-  // 悬停到哪个视频就播放哪个，其它暂停（跨域 iframe 内的无法互相控制）
-  // 任何"非脚本发起"的暂停 = 用户意图：本页此后不再自动播放，避免暂停被秒拉起
+  // 任何"非脚本发起"的暂停 = 用户意图：本页此后不再自动播放
   var selfPausing = false;
   document.addEventListener('pause', function (e) {
     try {

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.51.0
+// @version      1.53.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -25,6 +25,10 @@
   var VOL_STEP = 0.1;     // 音量步长
   var SHOW_TOAST = false;  // 快进/快退等提示（默认关闭）
   var VOLUME_TOAST = true; // 音量提示（默认开启）
+  var INSTANCE_ID = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8);
+  var HOVER_DWELL_MS = 700;
+  var SWITCH_GUARD_MS = 3000;
+
   var AUTOPLAY = true;    // 自动播放页面里的视频
   var AUTOPLAY_MUTED = true; // 被浏览器拦截时先静音播放
   var MIN_SIZE = 150;     // 小于这个尺寸的 video 视为广告/装饰，不自动播放
@@ -134,6 +138,15 @@
       try {
         var list = doc.querySelectorAll('video');
         for (var i = 0; i < list.length; i++) out.push(list[i]);
+        // 穿透 open shadow root（很多播放器把 video 放进 Shadow DOM）
+        var hosts = doc.querySelectorAll('*');
+        for (var k = 0; k < hosts.length; k++) {
+          var sr = hosts[k].shadowRoot;
+          if (sr) {
+            var inner = sr.querySelectorAll('video');
+            for (var j = 0; j < inner.length; j++) out.push(inner[j]);
+          }
+        }
       } catch (e) {}
       try {
         var frames = doc.querySelectorAll('iframe');
@@ -259,12 +272,60 @@
     } catch (err) {}
   }, true);
 
+
+  // 逐个视频绑定交互（Shadow DOM / 同源 iframe 内的事件也能收到；document 级监听在 Shadow 里会被重定向到 host）
+  function bindVideo(v) {
+    try {
+      if (!v) return;
+      // 每个脚本实例各自绑定（顶层实例也要给同源 iframe 里的视频绑，才能跨 frame 互相暂停）
+      if (v.dataset.vaBoundBy === INSTANCE_ID) return;
+      v.dataset.vaBoundBy = INSTANCE_ID;
+      v.addEventListener('mouseenter', function () {
+        onHoverVideo(v);
+      }, true);
+      v.addEventListener('click', function () {
+        setActive(v);
+        setTimeout(function () {
+          try {
+            if (!v.paused) {
+              selfPausing = true;
+              vids().forEach(function (o) { if (o !== v && !o.paused) { try { o.pause(); } catch (e) {} } });
+              selfPausing = false;
+            }
+          } catch (e) {}
+        }, 150);
+      }, true);
+    } catch (e) {}
+  }
+
+  // 悬停处理（与 document 级 mouseover 共用同一套判断）
+  function onHoverVideo(t) {
+    try {
+      if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
+      if (Date.now() - (window.__vaLastPauseAt || 0) < SWITCH_GUARD_MS) return;
+      if (userPausedRecently(t)) return;
+      setActive(t);
+      try { clearTimeout(window.__vaHoverTimer); } catch (e) {}
+      window.__vaHoverTimer = setTimeout(function () {
+        if (Date.now() - (window.__vaLastInput || 0) < 900) return;
+        selfPausing = true;
+        vids().forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (e) {} } });
+        selfPausing = false;
+        if (t.paused) {
+          window.__vaLastPauseAt = 0; window.__vaLastInput = Date.now();
+          PauseShield.release();
+          try { t.play().catch(function () {}); } catch (e) {}
+        }
+      }, HOVER_DWELL_MS);
+    } catch (e) {}
+  }
+
   document.addEventListener('mouseover', function (e) {
     try {
       var t = e.target;
       if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
       if (e.relatedTarget && t.contains && t.contains(e.relatedTarget)) return;
-      if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;
+      if (Date.now() - (window.__vaLastPauseAt || 0) < SWITCH_GUARD_MS) return;
       if (userPausedRecently(t)) return;
       var prev = activeVid;
       if (!prev) {
@@ -487,6 +548,7 @@
     if (window.__vaUserPausedOnce) return;      // 用户暂停过 → 本页不再自动播放
     if (Date.now() - (window.__vaLastInput || 0) < 1500) return;   // 用户刚点过，先别自动播
     var list = vids();
+    list.forEach(bindVideo);
     if (!list.length) return;
     var target = (activeVid && list.indexOf(activeVid) >= 0) ? activeVid : list.slice().sort(function (a, b) {
       return a.getBoundingClientRect().top - b.getBoundingClientRect().top;

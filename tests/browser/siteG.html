@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>G</title>
+<body style="margin:0;height:2400px">
+<div id="p0" style="height:800px;background:#333"></div>
+<div id="p1" style="height:800px;background:#444"></div>
+<div id="p2" style="height:800px;background:#555"></div>
+<script>
+  // 懒加载：点封面才创建 video
+  ['p0','p1','p2'].forEach(id=>{
+    const d=document.getElementById(id);
+    d.addEventListener('click',()=>{
+      if(d.querySelector('video')) return;
+      const v=document.createElement('video');
+      v.width=640; v.height=360; v.muted=true; v.setAttribute('playsinline','');
+      v.addEventListener('click',()=>{ v.paused?v.play():v.pause(); });
+      d.appendChild(v); v.play().catch(()=>{});
+    });
+  });
+  window.__state=()=>['p0','p1','p2'].map(id=>{ const v=document.querySelector('#'+id+' video'); return v? v.paused : null; });
+</script></body>

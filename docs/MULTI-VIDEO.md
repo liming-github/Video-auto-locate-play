@@ -10,7 +10,7 @@
 | **独立型** | 每个 `<video>` 各自独立播放，互不影响 | 91porna 长页、图集页、论坛帖 | 悬停/点击时主动**暂停其它全部**，保证同一时刻只有一个在播 |
 | **互斥型** | 站点自己实现"播一个就停其它" | 列表式播放器、部分 CMS | 脚本的同步暂停与站点一致，不产生冲突；以站点为准，脚本只补齐 |
 | **懒加载型** | 视频滚到视野才创建 `<video>` | 无限滚动列表 | 定位只做一次；后续靠悬停/点击激活，不主动创建 |
-| **iframe 型** | 每个视频在独立（可能跨域）iframe 里 | 聚合站、外链播放器 | 同源 iframe 内视为独立型；跨域 iframe 由浏览器隔离，**无法互相控制**，脚本只负责定位与该 iframe 内的按键 |
+| **iframe 型** | 每个视频在独立 iframe 里 | 聚合站、外链播放器 | **同源 iframe**：顶层脚本会给 iframe 内的 video 绑事件，能跨 frame 互相暂停；**跨域 iframe**：浏览器隔离，无法控制 |
 
 ## 二、统一策略（一条主线：同一时刻只有一个"当前视频"）
 
@@ -39,6 +39,15 @@
 3. 点击后又播回去 → 看 `docs/PAUSE-GUARD.md` 的 A~E 分类
 4. 想调灵敏度和停顿时长 → 脚本顶部四个常量：
    `HOVER_DWELL_MS / CLICK_SYNC_DELAY_MS / USER_QUIET_MS / SWITCH_GUARD_MS`
+
+## 四点五、Shadow DOM 与 iframe 的适配（v1.53 起）
+
+| 结构 | 处理方式 |
+|---|---|
+| **Shadow DOM 内的 video** | `vids()` 递归扫描所有元素（含 open shadow root）；交互事件直接绑在 video 元素上（document 级监听在 Shadow 里会被重定向到 host，拿不到 video） |
+| **同源 iframe 内的 video** | 顶层脚本通过 `contentDocument` 收集，并给 iframe 内的 video 绑定本实例的监听器；事件在 iframe 文档里触发，处理逻辑在顶层执行，因此能互相暂停 |
+| **跨域 iframe** | 浏览器安全隔离，无法读取/控制；脚本在 iframe 内独立运行，只影响该 frame 自己 |
+| **懒加载（点击才创建 video）** | 每 1.5 秒扫描一次，新出现的 video 会自动绑定交互 |
 
 ## 五、回归测试
 

@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>F</title>
+<body style="margin:0;height:2400px">
+<div id="h0"></div><div id="h1"></div><div id="h2"></div>
+<script>
+  const hosts=[...document.querySelectorAll('div')];
+  hosts.forEach((h,i)=>{
+    const sr=h.attachShadow({mode:'open'});
+    const v=document.createElement('video');
+    v.width=640; v.height=360; v.muted=true; v.setAttribute('playsinline','');
+    v.addEventListener('click',()=>{ v.paused?v.play():v.pause(); });
+    sr.appendChild(v);
+    h.style.height='800px';
+    v.play().catch(()=>{});
+  });
+  window.__state=()=>hosts.map(h=>h.shadowRoot.querySelector('video').paused);
+</script></body>

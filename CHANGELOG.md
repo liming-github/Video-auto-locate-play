@@ -142,3 +142,6 @@
 
 ## 1.45.0
 - 用"拦截站点 play() 调用"替代反复 pause，消除 hsck123 的高频闪烁
+
+## 1.46.0
+- 统一 PauseShield：拦截站点 play 调用，覆盖 A~E 五类暂停失效；新增 docs/PAUSE-GUARD.md

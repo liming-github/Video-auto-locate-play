@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.14.0
+// @version      1.15.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -517,15 +517,21 @@
       var inCustom = isUserExempt(curHost);
       var isException = builtIn || inCustom;
 
-      // ① 当前站点：明确的加入 / 移出
-      if (isException) {
-        GM_registerMenuCommand('➖ 恢复本站「自动播放/定位」（当前：例外中）', function () {
+      // ① 当前站点：内置例外只提示、不给加入；自定义可移出；其它可加入
+      if (builtIn) {
+        GM_registerMenuCommand('✅ 本站是默认例外（无需加入，也不允许加入）', function () {
+          alert('✅ ' + curHost + ' 属于默认例外名单：\n\n脚本不会在这里自动播放或自动定位，'
+              + '播放控制权交给网站本身。\n\n这是内置规则，无需也不能手动加入。\n'
+              + '快捷键（←/→ 快进、↑/↓ 音量、空格、回车全屏）仍然可用。');
+        });
+      } else if (inCustom) {
+        GM_registerMenuCommand('➖ 恢复本站「自动播放/定位」（当前：已加入例外）', function () {
           var list = userExemptList().filter(function (r) { return !hostMatches(curHost, r); });
           saveUserExempt(list);
-          alert('已恢复 ' + curHost + ' 的自动播放/定位。\n（若它是内置例外，仅本次会话有效）\n刷新页面生效');
+          alert('已把 ' + curHost + ' 移出例外，恢复自动播放/定位。\n刷新页面生效');
         });
       } else {
-        GM_registerMenuCommand('➕ 让本站停止「自动播放/定位」（加入例外）', function () {
+        GM_registerMenuCommand('➕ 加入例外：让本站停止「自动播放/定位」', function () {
           var list = userExemptList();
           if (!list.some(function (r) { return hostMatches(curHost, r); })) list.push(curHost);
           saveUserExempt(list);

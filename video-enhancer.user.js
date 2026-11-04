@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.22.0
+// @version      1.24.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -187,11 +187,28 @@
   document.addEventListener('mouseover', function (e) {
     try {
       var t = e.target;
-      if (!t || t.tagName !== 'VIDEO') return;
+      if (!t || !t.tagName) return;
+      var vid = (t.tagName === 'VIDEO') ? t : null;
+      if (!vid) {
+        // 点到了封面/画面区域（不是控制条）也算
+        try {
+          var box = t.closest && t.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
+          if (box && !(t.closest && t.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls, [class*="control"]'))) {
+            vid = box.querySelector('video');
+          }
+        } catch (err) {}
+      }
+      if (!vid) return;
+      t = vid;
       setActive(t);
+      var t2 = t;
       var list = vids();
+      list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
+      // 再补一刀：其它视频在 0.4s 内若自己又开始播（站点自动播放），继续压住
       if (list.length > 1) {
-        list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
+        setTimeout(function () {
+          list.forEach(function (o) { if (o !== activeVid && !o.paused) { try { o.pause(); } catch (err) {} } });
+        }, 400);
         if (t.paused) { try { t.play().catch(function () {}); } catch (err) {} }
       }
     } catch (err) {}
@@ -201,10 +218,24 @@
   document.addEventListener('click', function (e) {
     try {
       var t = e.target;
-      if (!t || t.tagName !== 'VIDEO') return;
+      if (!t || !t.tagName) return;
+      var vid = (t.tagName === 'VIDEO') ? t : null;
+      if (!vid) {
+        // 点到了封面/画面区域（不是控制条）也算
+        try {
+          var box = t.closest && t.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]');
+          if (box && !(t.closest && t.closest('.xgplayer-controls, .dplayer-controller, .vjs-control-bar, .plyr__controls, [class*="control"]'))) {
+            vid = box.querySelector('video');
+          }
+        } catch (err) {}
+      }
+      if (!vid) return;
+      t = vid;
       setActive(t);
-      if (t.paused || t.ended) { try { t.play().catch(function () {}); } catch (err) {} toast('▶️ 播放'); }
-      else { try { t.pause(); } catch (err) {} toast('⏸ 暂停'); }
+      var t2 = t;
+      try { e.stopPropagation(); e.preventDefault(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (err) {}
+      if (t2.paused || t2.ended) { try { t2.play().catch(function () {}); } catch (err) {} toast('▶️ 播放'); }
+      else { try { t2.pause(); } catch (err) {} toast('⏸ 暂停'); }
     } catch (err) {}
   }, true);
 
@@ -397,7 +428,10 @@
 
   function autoPlayAll() {
     if (!autoplayOn()) return;
-    vids().forEach(function (v) {
+    var ordered = vids().sort(function (a, b) {
+      return (a.getBoundingClientRect().top) - (b.getBoundingClientRect().top);
+    });
+    ordered.forEach(function (v) {
       var w = v.clientWidth || v.videoWidth || 0;
       var h = v.clientHeight || v.videoHeight || 0;
       if (w < MIN_SIZE || h < MIN_SIZE) return;
@@ -423,12 +457,13 @@
       if (list.length) { return; }
 
       // ② 播放器容器：只有内部真的装了 video 或 iframe 才算
-      var sels = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
+      var sels = ['.ql-video', '.dplayer', '.xgplayer', '#xgplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
                   '#player', '[class*="video-wrap"]', '[class*="video-wrapper"]', '[class*="video-container"]'];
       for (var i = 0; i < sels.length; i++) {
         var el = null;
         try { el = document.querySelector(sels[i]); } catch (e) { continue; }
         if (!el) continue;
+        // 必须真的装着播放器（video 或带 src 的 iframe），避免把装饰性同名容器当成播放器
         if (!el.querySelector('video, iframe[src]')) continue;
         var r = el.getBoundingClientRect();
         var vh = window.innerHeight || 800;

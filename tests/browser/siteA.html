@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>A</title>
+<body style="margin:0">
+<video id="v" width="640" height="360" muted playsinline></video>
+<script>
+  const v = document.getElementById('v');
+  // 模拟典型播放器：点击画面切换播放/暂停
+  v.addEventListener('click', () => { v.paused ? v.play() : v.pause(); });
+  // 模拟 hsck123：暂停后反复自己尝试播放
+  v.addEventListener('pause', () => { setInterval(() => { try { v.play(); } catch(e){} }, 150); });
+  v.play().catch(()=>{});
+  window.__paused = () => v.paused;
+</script></body>

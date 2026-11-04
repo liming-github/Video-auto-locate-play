@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>B</title>
+<body style="margin:0;height:4000px">
+<div style="height:1200px"><video id="v0" width="640" height="360" muted playsinline></video></div>
+<div style="height:1200px"><video id="v1" width="640" height="360" muted playsinline></video></div>
+<div style="height:1200px"><video id="v2" width="640" height="360" muted playsinline></video></div>
+<script>
+  const vs = [...document.querySelectorAll('video')];
+  // 模拟站点：点击画面切换
+  vs.forEach(v => v.addEventListener('click', () => { v.paused ? v.play() : v.pause(); }));
+  // 模拟 91porna：播放一个时暂停其它
+  vs.forEach(v => v.addEventListener('play', () => { vs.forEach(o => { if (o !== v) o.pause(); }); }));
+  vs[0].play().catch(()=>{});
+  window.__state = () => vs.map(v => v.paused);
+</script></body>

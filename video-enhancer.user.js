@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.48.0
+// @version      1.49.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -174,6 +174,11 @@
 
   // 点击完全交给站点播放器（脚本不介入）
 
+  // 用户点击/触摸时，取消尚未触发的悬停播放（否则"点暂停后 700ms 又被播起来"）
+  ['pointerdown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, function () { try { clearTimeout(window.__vaHoverTimer); } catch (e) {} }, true);
+  });
+
   // 记录最后一次真实用户输入时间（用于区分"站点自己恢复播放"与"用户点了播放"）
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
     document.addEventListener(ev, function () { window.__vaLastInput = Date.now(); PauseShield.release(); }, true);
@@ -244,7 +249,7 @@
         if (playing.length) prev = playing[0];
       }
       setActive(t);
-      var timer = setTimeout(function () {
+      window.__vaHoverTimer = setTimeout(function () {
         try {
           if (prev && prev !== t && !prev.paused) {
             selfPausing = true;
@@ -259,7 +264,7 @@
           }
         } catch (e) {}
       }, 700);
-      t.addEventListener('mouseleave', function () { clearTimeout(timer); }, { once: true });
+      t.addEventListener('mouseleave', function () { clearTimeout(window.__vaHoverTimer); }, { once: true });
     } catch (err) {}
   }, true);
 

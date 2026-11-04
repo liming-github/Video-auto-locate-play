@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.19.0
+// @version      1.19.1
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -366,62 +366,35 @@
     });
   }
 
-  // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
+  // 只在「确实存在播放器」时定位；纯列表/图文页一律不滚动
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
       if (siteState() !== 'on') return;
       if (window.__vaBoxDone) return;
+
+      // 页面上已经有 <video>：交给 scrollToVideo 处理，这里不参与
+      if (document.querySelector('video')) return;
+
       var vh = window.innerHeight || 800;
-      var scrollY = window.scrollY || window.pageYOffset || 0;
-
-      function visible(el) {
-        var r = el.getBoundingClientRect();
-        return r.bottom > 80 && r.top < vh - 80 && r.height > 40;
-      }
-
-      function goto(el) {
-        // 优先 scrollIntoView：能同时处理 window 滚动与内部滚动容器
-        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
-        // 校验：等两次动画帧，仍未进入视野则用绝对位置兜底
-        var tries = window.__vaScrollTries || 0;
-        setTimeout(function () {
-          if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); return; }
-          var rect = el.getBoundingClientRect();
-          var top = rect.top + (window.scrollY || window.pageYOffset || 0);
-          window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
-          setTimeout(function () {
-            if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); }
-          }, 700);
-        }, 700);
-        // 允许最多重试 6 次（页面懒加载时容器位置会变）
-        window.__vaScrollTries = tries + 1;
-        if (window.__vaScrollTries >= 6) window.__vaBoxDone = 1;
-        return true;
-      }
-
-      // 1) 精确选择器（即使高度为 0，也用 offsetTop 定位）
       var exact = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
-                   '#player', '.player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
-                   '[class*="video-container"]', '[class*="video-box"]', 'iframe[src*="play"]', 'iframe'];
+                   '#player', '[class*="video-wrap"]', '[class*="video-wrapper"]', '[class*="video-container"]'];
+
       for (var i = 0; i < exact.length; i++) {
         var el = null;
-        try { el = document.querySelector(exact[i]); } catch (e) {}
-        if (el && el.tagName !== 'VIDEO') { if (goto(el)) return; }
+        try { el = document.querySelector(exact[i]); } catch (e) { continue; }
+        if (!el) continue;
+        // 必须真的装着播放器（video 或 iframe），否则视为空容器，跳过
+        if (!el.querySelector('video, iframe')) continue;
+        var r = el.getBoundingClientRect();
+        if (r.height < 80) continue;
+        if (r.bottom > 80 && r.top < vh - 80) { window.__vaBoxDone = 1; return; } // 已在视野
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+        window.__vaBoxDone = 1;
+        toast('⬇️ 已定位到播放器');
+        return;
       }
-
-      // 2) 通用兜底：面积最大、宽≥260 的块
-      var best = null, bestArea = 0;
-      var list;
-      try { list = document.querySelectorAll('.article-content div, .post-content div, article div, main div'); } catch (e) { list = []; }
-      for (var j = 0; j < list.length && j < 800; j++) {
-        var d = list[j], rr = d.getBoundingClientRect();
-        if (rr.width >= 260 && rr.height >= 150) {
-          var a = rr.width * rr.height;
-          if (a > bestArea) { bestArea = a; best = d; }
-        }
-      }
-      if (best) goto(best);
+      // 没有命中任何播放器 → 什么都不做（列表页/文章页保持不动）
     } catch (e) {}
   }
 

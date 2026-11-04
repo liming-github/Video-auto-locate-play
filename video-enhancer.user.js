@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.35.0
+// @version      1.36.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -192,7 +192,7 @@
     setTimeout(function () {
       try {
         if (v.paused === before) {           // 站点没处理
-          if (v.paused) { delete v.dataset.vaUserPausedAt; v.play().catch(function () {}); }
+          if (v.paused) { delete v.dataset.vaUserPausedAt; window.__vaLastPauseAt = 0; v.play().catch(function () {}); }
           else { selfPausing = true; v.pause(); selfPausing = false; markUserPaused(v); }
           window.__vaUserToggledAt = Date.now();
           toast(v.paused ? '⏸ 暂停' : '▶️ 播放');
@@ -233,15 +233,15 @@
       // 悬停 700ms 仍未离开才播放，避免鼠标划过就被拉起
       var hovered = t, timer = setTimeout(function () {
         try { if (hovered !== t) return; } catch (e) {}
+        // 关键：定时器真正触发时再检查一次——用户在等待期间点了暂停就不该再播
+        if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;
+        if (userPausedRecently(t)) return;
+        selfPausing = true;
         list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-        if (t.paused) { try { t.play().catch(function () {}); } catch (err) {} }
+        selfPausing = false;
+        if (t.paused) { try { window.__vaLastPauseAt = 0; t.play().catch(function () {}); } catch (err) {} }
       }, 700);
       t.addEventListener('mouseleave', function () { clearTimeout(timer); }, { once: true });
-      if (list.length > 1) {
-        setTimeout(function () {
-          list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-        }, 400);
-      }
     } catch (err) {}
   }, true);
 
@@ -434,6 +434,8 @@
 
   function autoPlayAll() {
     if (!autoplayOn()) return;
+    // 用户刚暂停过（任意视频）→ 整个自动播放逻辑停手 60 秒，避免"暂停后自己又播"
+    if (Date.now() - (window.__vaLastPauseAt || 0) < 5000) return;   // 刚暂停过 → 5 秒内不自动恢复
     var list = vids();
     if (!list.length) return;
     // 只自动播放"当前"这一个（悬停过的，或页面上最靠上的），避免多个视频同时出声
@@ -656,7 +658,7 @@
     if (isSpace) {
       if (!v) return;
       var doToggle = function () {
-        if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; v.play().catch(function(){}); toast('▶️ 播放'); }
+        if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; window.__vaLastPauseAt = 0; v.play().catch(function(){}); toast('▶️ 播放'); }
         else { selfPausing = true; v.pause(); selfPausing = false; markUserPaused(v); toast('⏸ 暂停'); }
       };
       if (vimiumPresent()) {

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.42.0
+// @version      1.43.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -175,6 +175,11 @@
   // 点击：先让站点播放器处理；如果站点没反应，我们才补一次播放/暂停
   // 点击完全交给站点播放器处理（脚本不介入，避免站点的 pointerdown 已暂停、我们 click 又补一刀把它播回去）
 
+  // 记录最后一次真实用户输入时间（用于区分"站点自己恢复播放"与"用户点了播放"）
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, function () { window.__vaLastInput = Date.now(); }, true);
+  });
+
   // 任何"非脚本发起"的暂停 = 用户意图：本页此后不再自动播放
   var selfPausing = false;
   document.addEventListener('pause', function (e) {
@@ -184,17 +189,23 @@
       if (t && t.tagName === 'VIDEO') {
         window.__vaUserPausedOnce = true;
         window.__vaLastPauseAt = Date.now();
-        // 站点有些播放器会自己把暂停改回播放：1.5 秒内盯住这个视频，被播放就压回去
-        var target = t, until = Date.now() + 1500;
-        try { if (window.__vaPauseGuard) clearInterval(window.__vaPauseGuard); } catch (e) {}
-        var guard = setInterval(function () {
-          try {
-            if (Date.now() > until) { clearInterval(guard); return; }
-            if (!target.paused) target.pause();
-          } catch (err) { clearInterval(guard); }
-        }, 100);
-        window.__vaPauseGuard = guard;
       }
+    } catch (err) {}
+  }, true);
+
+  // 站点自己的播放器会把"暂停"改回播放：短时间内无用户输入的恢复，视为站点行为，压回暂停
+  document.addEventListener('play', function (e) {
+    try {
+      var t = e.target;
+      if (!t || t.tagName !== 'VIDEO') return;
+      var pausedAt = window.__vaLastPauseAt || 0;
+      var lastInput = window.__vaLastInput || 0;
+      if (!pausedAt) return;
+      if (Date.now() - pausedAt > 1200) return;        // 超过 1.2 秒的恢复不当成站点行为
+      if (Date.now() - lastInput < 500) return;        // 用户刚有输入（点了播放/按了键）→ 尊重用户
+      selfPausing = true;
+      try { t.pause(); } catch (err) {}
+      selfPausing = false;
     } catch (err) {}
   }, true);
 
@@ -209,8 +220,10 @@
       if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;   // 刚暂停过 → 3 秒内不要悬停播放
       setActive(t);
       var list = vids();
+      selfPausing = true;
       list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-      if (t.paused) { try { t.play().catch(function () {}); } catch (err) {} }
+      selfPausing = false;
+      if (t.paused) { window.__vaLastPauseAt = 0; window.__vaLastInput = Date.now(); try { t.play().catch(function () {}); } catch (err) {} }
       if (list.length > 1) {
         setTimeout(function () {
           list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
@@ -603,7 +616,7 @@
 
     if (isSpace) {
       stop(e);
-      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; window.__vaUserPausedOnce = false; window.__vaLastPauseAt = 0; try { clearInterval(window.__vaPauseGuard); } catch (e) {} v.play().catch(function(){}); toast('▶️ 播放'); }
+      if (v.paused || v.ended) { delete v.dataset.vaUserPausedAt; window.__vaUserPausedOnce = false; window.__vaLastPauseAt = 0; v.play().catch(function(){}); toast('▶️ 播放'); }
       else { v.pause(); markUserPaused(v); toast('⏸ 暂停'); }
       return;
     }

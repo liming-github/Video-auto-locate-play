@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.47.0
+// @version      1.48.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -219,71 +219,47 @@
     try {
       if (selfPausing) return;                 // 脚本自己暂停的，不算用户意图
       var t = e.target;
-      if (!t || t.tagName !== 'VIDEO') return;
-      window.__vaUserPausedOnce = true;        // 本页停止自动播放（所有视频）
-      window.__vaLastPauseAt = Date.now();
-      // 只有页面上只有这一个视频时才拦截 play：
-      // 多视频页面里拦截会让该视频永久"点了没反应"，且无法区分是站点还是你自己的操作
-      var count = 0;
-      try { count = document.querySelectorAll('video').length; } catch (e) { count = 1; }
-      if (count <= 1) {
-        PauseShield.protect(t);
-      } else {
-        // 多视频页面：不拦截 play（否则该视频会永久点不动），
-        // 但要让"其它视频在你暂停后自己播起来"的情况被压回去（最多 6 次，避免拉锯）
-        try { if (window.__vaPauseWatch) clearInterval(window.__vaPauseWatch); } catch (e) {}
-        var self = t, attempts = 0, until = Date.now() + 3000;
-        window.__vaPauseWatch = setInterval(function () {
-          try {
-            if (Date.now() > until || attempts > 6) { clearInterval(window.__vaPauseWatch); window.__vaPauseWatch = null; return; }
-            if ((window.__vaLastInput || 0) > (window.__vaLastPauseAt || 0)) {   // 用户有输入 → 停手
-              clearInterval(window.__vaPauseWatch); window.__vaPauseWatch = null; return;
-            }
-            Array.prototype.slice.call(document.querySelectorAll('video')).forEach(function (o) {
-              if (o !== self && !o.paused) { attempts++; selfPausing = true; try { o.pause(); } catch (e) {} selfPausing = false; }
-            });
-          } catch (err) { clearInterval(window.__vaPauseWatch); window.__vaPauseWatch = null; }
-        }, 250);
+      if (t && t.tagName === 'VIDEO') {
+        window.__vaUserPausedOnce = true;
+        window.__vaLastPauseAt = Date.now();
+        var cnt = 0;
+        try { cnt = document.querySelectorAll('video').length; } catch (e) { cnt = 1; }
+        if (cnt <= 1) PauseShield.protect(t);   // 多视频页面拦截会导致"点不回播放"
       }
     } catch (err) {}
   }, true);
 
-  // 站点自己的播放器会把"暂停"改回播放：短时间内无用户输入的恢复，视为站点行为，压回暂停
-  document.addEventListener('play', function (e) {
-    try {
-      var t = e.target;
-      if (!t || t.tagName !== 'VIDEO') return;
-      var pausedAt = window.__vaLastPauseAt || 0;
-      var lastInput = window.__vaLastInput || 0;
-      if (!pausedAt) return;
-      if (Date.now() - pausedAt > 1200) return;        // 超过 1.2 秒的恢复不当成站点行为
-      if (Date.now() - lastInput < 500) return;        // 用户刚有输入（点了播放/按了键）→ 尊重用户
-      selfPausing = true;
-      try { t.pause(); } catch (err) {}
-      selfPausing = false;
-    } catch (err) {}
-  }, true);
+  // （旧的 play 事件防复播逻辑已移除：单视频页面由 PauseShield 拦截，多视频页面靠定位/自动播放收敛）
 
   document.addEventListener('mouseover', function (e) {
     try {
       var t = e.target;
       if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
-      // 只在"从视频外部进入"时才算悬停切换，避免在视频内部移动鼠标反复触发
       if (e.relatedTarget && t.contains && t.contains(e.relatedTarget)) return;
-      // 用户刚手动暂停/播放过，2 秒内不再自动播放，避免"暂停后被鼠标一碰又播"
-      if (Date.now() - (window.__vaUserToggledAt || 0) < 2000) return;
-      if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;   // 刚暂停过 → 3 秒内不要悬停播放
-      setActive(t);
-      var list = vids();
-      selfPausing = true;
-      list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-      selfPausing = false;
-      if (t.paused) { window.__vaLastPauseAt = 0; window.__vaLastInput = Date.now(); PauseShield.release(); try { t.play().catch(function () {}); } catch (err) {} }
-      if (list.length > 1) {
-        setTimeout(function () {
-          list.forEach(function (o) { if (o !== t && !o.paused) { try { o.pause(); } catch (err) {} } });
-        }, 400);
+      if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;
+      if (userPausedRecently(t)) return;
+      var prev = activeVid;
+      if (!prev) {
+        var playing = vids().filter(function (o) { return o !== t && !o.paused; });
+        if (playing.length) prev = playing[0];
       }
+      setActive(t);
+      var timer = setTimeout(function () {
+        try {
+          if (prev && prev !== t && !prev.paused) {
+            selfPausing = true;
+            try { prev.pause(); } catch (e) {}
+            selfPausing = false;
+          }
+          if (t.paused) {
+            window.__vaLastPauseAt = 0;
+            window.__vaLastInput = Date.now();
+            PauseShield.release();
+            try { t.play().catch(function () {}); } catch (e) {}
+          }
+        } catch (e) {}
+      }, 700);
+      t.addEventListener('mouseleave', function () { clearTimeout(timer); }, { once: true });
     } catch (err) {}
   }, true);
 
@@ -332,13 +308,15 @@
   function scrollToVideo(v) {
     if (!AUTO_SCROLL || !v) return;
     try {
+      if (window.__vaLocatedOnce) return;      // 已经自动定位过一次，不再打扰
       if (v.dataset.vaScrolled) return;
       var r = v.getBoundingClientRect();
       var vh = window.innerHeight || document.documentElement.clientHeight;
       var offscreen = (r.bottom < 80) || (r.top > vh - 80);
-      if (SCROLL_IF_OFFSCREEN && !offscreen) { v.dataset.vaScrolled = '1'; return; }
+      if (SCROLL_IF_OFFSCREEN && !offscreen) { v.dataset.vaScrolled = '1'; window.__vaLocatedOnce = true; return; }
       v.dataset.vaScrolled = '1';
       v.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      window.__vaLocatedOnce = true;
       toast('⬇️ 已定位到视频');
     } catch (e) {}
   }
@@ -476,23 +454,21 @@
 
   function autoPlayAll() {
     if (!autoplayOn()) return;
-    if (window.__vaUserPausedOnce) return;           // 用户暂停过 → 不再自动播放
-    var ordered = vids().sort(function (a, b) {
+    if (window.__vaUserPausedOnce) return;      // 用户暂停过 → 本页不再自动播放
+    var list = vids();
+    if (!list.length) return;
+    var target = (activeVid && list.indexOf(activeVid) >= 0) ? activeVid : list.slice().sort(function (a, b) {
       return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
-    });
-    ordered.forEach(function (v) {
-      var w = v.clientWidth || v.videoWidth || 0;
-      var h = v.clientHeight || v.videoHeight || 0;
-      if (w < MIN_SIZE || h < MIN_SIZE) return;
-      if (!v.paused && !v.ended) { v.dataset.vaTries = '0'; return; }
-      if (userPausedRecently(v)) { v.dataset.vaTries = '0'; return; }   // 用户手动暂停的，别自动拉起来
-      // 首次发现：滚动到播放器（即使还没播起来）
-      scrollToVideo(v);
-      var tries = parseInt(v.dataset.vaTries || '0', 10);
-      if (tries >= 25) return;                     // 最多试 25 次（约 37 秒）
-      v.dataset.vaTries = String(tries + 1);
-      tryPlay(v);
-    });
+    })[0];
+    if (!target) return;
+    var w = target.clientWidth || target.videoWidth || 0;
+    var h = target.clientHeight || target.videoHeight || 0;
+    if (w < MIN_SIZE || h < MIN_SIZE) return;
+    if (!target.paused && !target.ended) { target.dataset.vaTries = '0'; return; }
+    var tries = parseInt(target.dataset.vaTries || '0', 10);
+    if (tries >= 25) return;
+    target.dataset.vaTries = String(tries + 1);
+    tryPlay(target);
   }
 
   // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
@@ -500,7 +476,7 @@
     try {
       if (!AUTO_SCROLL) return;
       if (siteState() !== 'on') return;
-      if (window.__vaBoxDone) return;
+      if (window.__vaBoxDone || window.__vaLocatedOnce) return;
       var vh = window.innerHeight || 800;
       var scrollY = window.scrollY || window.pageYOffset || 0;
 

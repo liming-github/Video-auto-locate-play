@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.13.0
+// @version      1.14.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -509,22 +509,44 @@
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
   }
 
-  // 油猴菜单：把当前站点加入或移出「例外名单」
+  // ===== 油猴菜单：明确的加入/移出 + 名单查看 + 逐条移除 =====
   try {
     if (typeof GM_registerMenuCommand === 'function') {
-      GM_registerMenuCommand('把本网站加入/移出「例外」(不自动播放/定位)', function () {
-        var h = location.hostname.toLowerCase();
-        var list = userExemptList();
-        var idx = list.findIndex(function (r) { return hostMatches(h, r); });
-        if (idx >= 0) {
-          list.splice(idx, 1);
+      var curHost = location.hostname.toLowerCase();
+      var builtIn = EXEMPT_HOSTS.some(function (r) { return hostMatches(curHost, r); });
+      var inCustom = isUserExempt(curHost);
+      var isException = builtIn || inCustom;
+
+      // ① 当前站点：明确的加入 / 移出
+      if (isException) {
+        GM_registerMenuCommand('➖ 恢复本站「自动播放/定位」（当前：例外中）', function () {
+          var list = userExemptList().filter(function (r) { return !hostMatches(curHost, r); });
           saveUserExempt(list);
-          alert('已把 ' + h + ' 移出例外名单（恢复自动播放/定位）\n刷新页面生效');
-        } else {
-          list.push(h);
+          alert('已恢复 ' + curHost + ' 的自动播放/定位。\n（若它是内置例外，仅本次会话有效）\n刷新页面生效');
+        });
+      } else {
+        GM_registerMenuCommand('➕ 让本站停止「自动播放/定位」（加入例外）', function () {
+          var list = userExemptList();
+          if (!list.some(function (r) { return hostMatches(curHost, r); })) list.push(curHost);
           saveUserExempt(list);
-          alert('已把 ' + h + ' 加入例外名单（不自动播放/定位）\n刷新页面生效');
-        }
+          alert('已把 ' + curHost + ' 加入例外：不再自动播放/定位。\n刷新页面生效');
+        });
+      }
+
+      // ② 查看名单（内置 + 自定义）
+      GM_registerMenuCommand('📋 查看例外名单', function () {
+        var u = userExemptList();
+        alert('【内置例外（默认不自动播放）】\n' + EXEMPT_HOSTS.join('、') +
+              '\n\n【我自定义的例外（可在菜单里逐条移除）】\n' + (u.length ? u.join('\n') : '（暂无）'));
+      });
+
+      // ③ 逐条移除（每条一个菜单项，带 ➖）
+      userExemptList().slice(0, 20).forEach(function (host) {
+        GM_registerMenuCommand('➖ 移除例外：' + host, function () {
+          var list = userExemptList().filter(function (r) { return r !== host; });
+          saveUserExempt(list);
+          alert('已移除例外：' + host + '\n刷新页面后菜单会更新');
+        });
       });
     }
   } catch (e) {}

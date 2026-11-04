@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.25.0
+// @version      1.26.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -482,7 +482,27 @@
         toast('⬇️ 已定位到播放器');
         return;
       }
-      // ③ 什么都没有 → 不滚动
+      // ③ 跨域播放器：页面里有一个足够大的 iframe（≥640×360）→ 滚到它
+      var big = null, bigArea = 0;
+      try {
+        document.querySelectorAll('iframe').forEach(function (f) {
+          var r = f.getBoundingClientRect();
+          var a = r.width * r.height;
+          if (r.width >= 640 && r.height >= 360 && a > bigArea) { bigArea = a; big = f; }
+        });
+      } catch (e) {}
+      if (big) {
+        var vb = window.innerHeight || 800;
+        var rb = big.getBoundingClientRect();
+        if (!(rb.bottom > 90 && rb.top < vb - 90)) {
+          try { big.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) {}
+          toast('⬇️ 已定位到播放器');
+        }
+        window.__vaBoxDone = 1;
+        return;
+      }
+
+      // ④ 什么都没有 → 不滚动
     } catch (e) {}
   }
 

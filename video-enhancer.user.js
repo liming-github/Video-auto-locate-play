@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.52.0
+// @version      1.51.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -25,18 +25,6 @@
   var VOL_STEP = 0.1;     // 音量步长
   var SHOW_TOAST = false;  // 快进/快退等提示（默认关闭）
   var VOLUME_TOAST = true; // 音量提示（默认开启）
-  /* ===== 多视频行为策略（集中配置，勿散落在各处硬编码） =====
-   * 目标：同一套逻辑适配所有"一个页面多个视频"的站点，不按域名写规则
-   *   1. 定位：进页面自动定位第一个视频并播放，只做一次
-   *   2. 悬停：停留 HOVER_DWELL_MS 后播放它，其它全部暂停
-   *   3. 点击：站点先处理，CLICK_SYNC_DELAY_MS 后若它在播则暂停其它
-   *   4. 用户暂停过的视频，本页不再自动拉起（USER_QUIET_MS 内也不自动播）
-   */
-  var HOVER_DWELL_MS = 700;      // 悬停多久才切换
-  var CLICK_SYNC_DELAY_MS = 150; // 点击后多久同步"其它暂停"
-  var USER_QUIET_MS = 1500;      // 用户操作后多久内不自动播放
-  var SWITCH_GUARD_MS = 3000;    // 刚暂停后多久内悬停不触发
-
   var AUTOPLAY = true;    // 自动播放页面里的视频
   var AUTOPLAY_MUTED = true; // 被浏览器拦截时先静音播放
   var MIN_SIZE = 150;     // 小于这个尺寸的 video 视为广告/装饰，不自动播放
@@ -267,7 +255,7 @@
             selfPausing = false;
           }
         } catch (err) {}
-      }, CLICK_SYNC_DELAY_MS);
+      }, 150);
     } catch (err) {}
   }, true);
 
@@ -276,7 +264,7 @@
       var t = e.target;
       if (!t || t.tagName !== 'VIDEO' || t === activeVid) return;
       if (e.relatedTarget && t.contains && t.contains(e.relatedTarget)) return;
-      if (Date.now() - (window.__vaLastPauseAt || 0) < SWITCH_GUARD_MS) return;
+      if (Date.now() - (window.__vaLastPauseAt || 0) < 3000) return;
       if (userPausedRecently(t)) return;
       var prev = activeVid;
       if (!prev) {
@@ -300,7 +288,7 @@
             try { t.play().catch(function () {}); } catch (e) {}
           }
         } catch (e) {}
-      }, HOVER_DWELL_MS);
+      }, 700);
       t.addEventListener('mouseleave', function () { clearTimeout(window.__vaHoverTimer); }, { once: true });
     } catch (err) {}
   }, true);
@@ -497,7 +485,7 @@
   function autoPlayAll() {
     if (!autoplayOn()) return;
     if (window.__vaUserPausedOnce) return;      // 用户暂停过 → 本页不再自动播放
-    if (Date.now() - (window.__vaLastInput || 0) < USER_QUIET_MS) return;   // 用户刚点过，先别自动播
+    if (Date.now() - (window.__vaLastInput || 0) < 1500) return;   // 用户刚点过，先别自动播
     var list = vids();
     if (!list.length) return;
     var target = (activeVid && list.indexOf(activeVid) >= 0) ? activeVid : list.slice().sort(function (a, b) {
@@ -540,8 +528,8 @@
           window.scrollTo({ top: Math.max(0, top - Math.round(vh * 0.3)), behavior: 'smooth' });
           setTimeout(function () {
             if (visible(el)) { window.__vaBoxDone = 1; toast('⬇️ 已定位到播放器'); }
-          }, HOVER_DWELL_MS);
-        }, HOVER_DWELL_MS);
+          }, 700);
+        }, 700);
         // 允许最多重试 6 次（页面懒加载时容器位置会变）
         window.__vaScrollTries = tries + 1;
         if (window.__vaScrollTries >= 6) window.__vaBoxDone = 1;

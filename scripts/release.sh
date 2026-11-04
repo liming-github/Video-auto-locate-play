@@ -15,6 +15,16 @@ if [ -n "$NOTE" ]; then
   printf '\n## %s\n- %s\n' "$NEW_VER" "$NOTE" >> CHANGELOG.md
 fi
 
+# 生成可直接粘贴到 Greasyfork「更新说明」的版本备注
+mkdir -p releases
+{
+  echo "v${NEW_VER} 更新说明"
+  echo
+  [ -n "$NOTE" ] && echo "- ${NOTE}"
+  echo "- 详细变更见 CHANGELOG.md"
+} > "releases/v${NEW_VER}.md"
+echo "📝 版本说明已写入 releases/v${NEW_VER}.md（上传 Greasyfork 时粘贴到「更新说明」）"
+
 git add -A
 git commit -m "release: v${NEW_VER}${NOTE:+ - $NOTE}"
 git push origin main

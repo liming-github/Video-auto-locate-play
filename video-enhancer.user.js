@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.20.0
+// @version      1.21.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -369,12 +369,15 @@
   // 统一定位：在所有候选里挑「面积最大的真实播放器」，滚到视野中央并做一次纠偏
   function findPlayerTarget() {
     var cands = [];
-    function push(el) {
+    function push(el, force) {
       if (!el || el.tagName === 'BODY') return;
       var r = el.getBoundingClientRect();
       var w = r.width || el.clientWidth || 0, h = r.height || el.clientHeight || 0;
-      if (w < 300 || h < 150) return;
-      cands.push({ el: el, area: w * h });
+      var hasPlayer = false;
+      try { hasPlayer = !!(el.querySelector && el.querySelector('video,iframe')) || el.tagName === 'IFRAME' || el.tagName === 'VIDEO'; } catch (e) {}
+      if (!force && (w < 300 || h < 150) && !hasPlayer) return;
+      if (w < 40 && h < 40 && !hasPlayer) return;
+      cands.push({ el: el, area: Math.max(w * h, hasPlayer ? 300 * 150 : 0) });
     }
     // 1) 已知播放器容器
     ['.dplayer', '.ql-video', '.art-video-player', '.video-js', '.plyr', '#dplayer', '#player',
@@ -603,6 +606,27 @@
       });
     }
   } catch (e) {}
+
+  // 诊断：Shift+Alt+D 显示本页播放器检测结果（配合截图反馈）
+  document.addEventListener('keydown', function (e) {
+    if (!(e.shiftKey && e.altKey && (e.key === 'd' || e.key === 'D'))) return;
+    try {
+      var vs = document.querySelectorAll('video').length;
+      var fs = document.querySelectorAll('iframe').length;
+      var big = 0, list = [];
+      document.querySelectorAll('video,iframe').forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.width >= 200 && r.height >= 100) big++;
+        list.push(el.tagName + ' ' + Math.round(r.width) + 'x' + Math.round(r.height) + (el.src ? ' ' + String(el.src).slice(0, 40) : ''));
+      });
+      var t = findPlayerTarget();
+      var info = '【诊断】\n<video>=' + vs + '  <iframe>=' + fs + '  可见播放器=' + big +
+        '\n目标: ' + (t ? (t.tagName + '.' + (t.className || '').toString().slice(0, 40)) : '无') +
+        '\n滚动状态: ' + (window.__vaBoxDone ? '已处理' : '未处理') +
+        '\n列表:\n' + (list.slice(0, 6).join('\n') || '（无 video/iframe）');
+      alert(info);
+    } catch (err) {}
+  }, true);
 
   window.addEventListener('keydown', onKey, true);
   document.addEventListener('keydown', onKey, true);

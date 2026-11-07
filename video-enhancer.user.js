@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.53.0
+// @version      1.55.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -703,8 +703,47 @@
     } catch (e) { return false; }
   }
 
+  // ===== 与 Vimium 等键盘扩展共存 =====
+  // 检测到 Vimium 时：只有"正在全屏播放 / 鼠标在视频上 / 焦点在播放器内"才接管按键，
+  // 其余时候把按键原样让给 Vimium；且不再阻断事件传播（否则 Vimium 的 j/k/f/o 等全部失效）。
+  var vimiumOn = null;
+  function vimiumPresent() {
+    if (vimiumOn !== null) return vimiumOn;
+    try {
+      vimiumOn = !!(document.querySelector('.vimiumUI, #vimiumHUD, .vimiumReset, #vimiumFlash, .vimiumHintMarker') ||
+                    document.documentElement.classList.contains('vimium'));
+    } catch (e) { vimiumOn = false; }
+    return vimiumOn;
+  }
+
+  var pointerOverVideo = false;
+  document.addEventListener('mouseover', function (e) {
+    try {
+      var t = e.target;
+      pointerOverVideo = !!(t && (t.tagName === 'VIDEO' ||
+        (t.closest && t.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]'))));
+    } catch (e) {}
+  }, true);
+
+  function playerContext() {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return true;
+      if (pointerOverVideo) return true;
+      var a = document.activeElement;
+      if (a && a.closest && a.closest('.ql-video, .xgplayer, .dplayer, .video-js, .plyr, #player, [class*="video-wrap"], [class*="video-container"]')) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  // 轻量拦截：只阻止页面默认行为，不阻断事件传播（Vimium 仍能收到）
+  function stopSoft(e) { try { e.preventDefault(); } catch (err) {} }
+
   function onKey(e) {
+    if (e.__vaHandled) return;
+    e.__vaHandled = true;
     if (e.altKey || e.ctrlKey || e.metaKey) return;
+    // Vimium 在场：不在播放器上下文时一律不接管（让 j/k/f/o/空格 等照常用）
+    if (vimiumPresent() && !playerContext()) return;
     if (isTextEditable(e.target) || isTextEditable(document.activeElement)) return;
     // 任意按键都先尝试恢复声音（浏览器把按键视为用户手势）
     try { tryUnmuteAll(); } catch (err) {}
@@ -821,7 +860,10 @@
   }
 
   function stop(e) {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    // Vimium 在场时不做"完全阻断"，避免把它整个键盘系统打死
+    if (vimiumPresent()) return;
+    e.stopPropagation();
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
   }
 
@@ -875,8 +917,7 @@
 
   setTimeout(autoUnmuteAttempt, 1200);
 
-  window.addEventListener('keydown', onKey, true);
-  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('keydown', onKey, true);   // 只挂一处：Vimium 模式下不再阻断传播，重复挂会导致一次按键处理两次
 
   /* ---------- 站点开关：Shift+Alt+A 切换本站自动播放 ---------- */
   document.addEventListener('keydown', function (e) {

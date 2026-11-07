@@ -1,6 +1,6 @@
-const { JSDOM } = require('/tmp/vtest/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const src = fs.readFileSync('../video-enhancer.user.js','utf8');
+const src = fs.readFileSync(require('path').join(__dirname,'..','video-enhancer.user.js'),'utf8');
 const dom = new JSDOM(`<body>
   <div class="ql-video"><video id="v" src="x.m3u8"></video></div>
   <div style="height:4000px"></div></body>`,

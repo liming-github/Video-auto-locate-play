@@ -1,6 +1,6 @@
-const { JSDOM } = require('/tmp/vtest/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const src = fs.readFileSync('../video-enhancer.user.js','utf8');
+const src = fs.readFileSync(require('path').join(__dirname,'..','video-enhancer.user.js'),'utf8');
 const dom = new JSDOM(`<body><video id="v" src="x.mp4"></video></body>`,{url:'https://x.com/v',pretendToBeVisual:true,runScripts:'outside-only'});
 const { window } = dom, doc = window.document;
 const v = doc.getElementById('v');

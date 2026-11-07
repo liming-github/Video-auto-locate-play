@@ -1,6 +1,6 @@
-const { JSDOM } = require('/tmp/vtest/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const src = fs.readFileSync('../video-enhancer.user.js','utf8');
+const src = fs.readFileSync(require('path').join(__dirname,'..','video-enhancer.user.js'),'utf8');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const dom=new JSDOM(`<body><video id="a" src="a.mp4"></video><video id="b" src="b.mp4"></video></body>`,{url:'https://91porna.com/x',pretendToBeVisual:true,runScripts:'outside-only'});
 const {window}=dom, doc=window.document;

@@ -1,6 +1,6 @@
-const { JSDOM } = require('/tmp/vtest/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const src = fs.readFileSync('../video-enhancer.user.js','utf8');
+const src = fs.readFileSync(require('path').join(__dirname,'..','video-enhancer.user.js'),'utf8');
 const results = [];
 const check = (n, c) => results.push([n, c]);
 

@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.55.0
+// @version      1.56.0
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -564,14 +564,51 @@
     tryPlay(target);
   }
 
-  // 兜底定位：优先精确的播放器容器；容器高度为 0 也能用 offsetTop 滚过去
+  // 兜底定位：只滚动到"确实有视频证据"的目标（修复：无视频页面不再误滚动）
+  // 判据（只看页面事实，不用域名白名单）：
+  //   1) 页面有可见 <video> → 直接定位到它（不管是否已在播放）
+  //   2) 播放器容器：类名像播放器，且内部确有 <video> 或带 src 的 <iframe>
+  //   3) 跨域播放器：带明确视频信号的 iframe（不匹配广告/地图/评论）
+  //   4) 以上都没有 → 一步都不滚
+  function isVideoIframe(f) {
+    try {
+      var src = ((f.getAttribute && f.getAttribute('src')) || (f.getAttribute && f.getAttribute('data-src')) || '').toLowerCase();
+      if (!src || src === 'about:blank' || src === 'about:srcdoc') return false;
+      var hints = [
+        'youtube.com/embed', 'youtu.be', 'vimeo', 'bilibili', 'iqiyi', 'youku',
+        'v.qq.com', 'mgtv', 'dailymotion', 'twitch', 'player.', '/player',
+        'video.', '/video', '.mp4', 'm3u8', 'dplayer', 'artplayer', 'videojs', 'xgplayer'
+      ];
+      for (var i = 0; i < hints.length; i++) {
+        if (src.indexOf(hints[i]) >= 0) return true;
+      }
+      return false;
+    } catch (e) { return false; }
+  }
+
+  function findPlayerBox() {
+    var sels = ['.ql-video', '.xgplayer', '#xgplayer', '.dplayer', '#dplayer', '.art-video-player',
+                '.video-js', '.plyr', '#player', '.player',
+                '[class*="video-wrap"]', '[class*="video-wrapper"]',
+                '[class*="video-container"]', '[class*="video-box"]'];
+    for (var i = 0; i < sels.length; i++) {
+      var list;
+      try { list = document.querySelectorAll(sels[i]); } catch (e) { continue; }
+      for (var j = 0; j < list.length; j++) {
+        var el = list[j];
+        if (!el || el.tagName === 'VIDEO') continue;
+        try { if (el.querySelector('video, iframe[src]')) return el; } catch (e) {}
+      }
+    }
+    return null;
+  }
+
   function scrollToPlayerBox() {
     try {
       if (!AUTO_SCROLL) return;
       if (siteState() !== 'on') return;
       if (window.__vaBoxDone || window.__vaLocatedOnce) return;
       var vh = window.innerHeight || 800;
-      var scrollY = window.scrollY || window.pageYOffset || 0;
 
       function visible(el) {
         var r = el.getBoundingClientRect();
@@ -598,28 +635,21 @@
         return true;
       }
 
-      // 1) 精确选择器（即使高度为 0，也用 offsetTop 定位）
-      var exact = ['.ql-video', '.dplayer', '#dplayer', '.art-video-player', '.video-js', '.plyr',
-                   '#player', '.player', '[class*="video-wrap"]', '[class*="video-wrapper"]',
-                   '[class*="video-container"]', '[class*="video-box"]', 'iframe[src*="play"]', 'iframe'];
-      for (var i = 0; i < exact.length; i++) {
-        var el = null;
-        try { el = document.querySelector(exact[i]); } catch (e) {}
-        if (el && el.tagName !== 'VIDEO') { if (goto(el)) return; }
+      // 1) 页面有可见 <video> → 直接定位（原来只在"播起来"后才滚，导致暂停/未播视频不定位）
+      var v = pickVideo();
+      if (v) { scrollToVideo(v); return; }
+
+      // 2) 播放器容器（类名像播放器，且内部确有 video/iframe）
+      var box = findPlayerBox();
+      if (box) { goto(box); return; }
+
+      // 3) 跨域播放器：带明确视频信号的 iframe
+      var frames = Array.prototype.slice.call(document.querySelectorAll('iframe'));
+      for (var k = 0; k < frames.length; k++) {
+        if (isVideoIframe(frames[k])) { goto(frames[k]); return; }
       }
 
-      // 2) 通用兜底：面积最大、宽≥260 的块
-      var best = null, bestArea = 0;
-      var list;
-      try { list = document.querySelectorAll('.article-content div, .post-content div, article div, main div'); } catch (e) { list = []; }
-      for (var j = 0; j < list.length && j < 800; j++) {
-        var d = list[j], rr = d.getBoundingClientRect();
-        if (rr.width >= 260 && rr.height >= 150) {
-          var a = rr.width * rr.height;
-          if (a > bestArea) { bestArea = a; best = d; }
-        }
-      }
-      if (best) goto(best);
+      // 4) 都没有 → 一步都不滚
     } catch (e) {}
   }
 

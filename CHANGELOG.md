@@ -178,3 +178,9 @@
 - 判据按序：可见 <video>（不依赖是否已播放）→ 播放器容器（内部确有 video/iframe）→ 视频信号 iframe
 - 移除"任意大 iframe""面积最大 div"两个误判来源（广告/地图/评论 iframe、文章正文不再误滚）
 - 新增 5 项自动定位回归测试：无视频不滚 / 裸 video 定位 / 零尺寸容器 / 视频 iframe / 广告 iframe，全部通过
+
+## 1.56.1
+- 修复 91porna 等「播放器懒加载」站点自动定位失效（1.56.0 的回归）
+- 根因：懒加载站点的播放器容器先放空壳、滚动进视口后才动态创建 <video>，1.56.0 的「容器内必须有 video/iframe」判据永远不满足
+- 修法：容器分强/弱信号 —— .ql-video/.xgplayer/.dplayer/.art-video-player/.video-js/.plyr 直接定位（懒加载也认）；#player/.player/[class*="video-*"] 仍需内部有 video/iframe
+- 验证：真实浏览器打开 91porna 该页自动滚到播放器并触发站点懒加载创建出 HLS 播放器；新增 3 项 jsdom 用例

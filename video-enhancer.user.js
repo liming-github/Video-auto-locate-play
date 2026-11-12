@@ -3,7 +3,7 @@
 // @name:en      Long-page auto-positioning & autoplay ↔ Fast forward/rewind
 // @name:zh-CN   长页面自动定位播放视频 ↔ 快进快退
 // @namespace    https://github.com/liming-github/Video-auto-locate-play
-// @version      1.56.0
+// @version      1.56.1
 // @description  长页面自动定位视频并自动播放；←/→ 快进快退10秒（无需点进度条）· ↑/↓ 音量 · 空格暂停 · 回车/F 全屏 · ESC 退出并回到原位 · P 画中画 · M 静音。支持 iframe 播放器，不干扰输入框。
 // @description:en Auto-scrolls to the video and autoplays it; arrow keys seek ±10s without focusing the progress bar, plus volume, pause, fullscreen with scroll restore, picture-in-picture and mute.
 // @author       leon (liming-github)
@@ -587,17 +587,25 @@
   }
 
   function findPlayerBox() {
-    var sels = ['.ql-video', '.xgplayer', '#xgplayer', '.dplayer', '#dplayer', '.art-video-player',
-                '.video-js', '.plyr', '#player', '.player',
+    // 强信号播放器：这些类名几乎只代表播放器，即使此刻还没注入 <video>（懒加载/滚动才建）也直接定位
+    var strong = ['.ql-video', '.xgplayer', '#xgplayer', '.dplayer', '#dplayer',
+                  '.art-video-player', '.video-js', '.plyr'];
+    for (var i = 0; i < strong.length; i++) {
+      var el;
+      try { el = document.querySelector(strong[i]); } catch (e) { continue; }
+      if (el && el.tagName !== 'VIDEO') return el;
+    }
+    // 弱信号：类名可能泛用（#player/.player/video-* 可能是空容器或栏目），必须内部确有 video/iframe 才算
+    var weak = ['#player', '.player',
                 '[class*="video-wrap"]', '[class*="video-wrapper"]',
                 '[class*="video-container"]', '[class*="video-box"]'];
-    for (var i = 0; i < sels.length; i++) {
+    for (var j = 0; j < weak.length; j++) {
       var list;
-      try { list = document.querySelectorAll(sels[i]); } catch (e) { continue; }
-      for (var j = 0; j < list.length; j++) {
-        var el = list[j];
-        if (!el || el.tagName === 'VIDEO') continue;
-        try { if (el.querySelector('video, iframe[src]')) return el; } catch (e) {}
+      try { list = document.querySelectorAll(weak[j]); } catch (e) { continue; }
+      for (var k = 0; k < list.length; k++) {
+        var w = list[k];
+        if (!w || w.tagName === 'VIDEO') continue;
+        try { if (w.querySelector('video, iframe[src]')) return w; } catch (e) {}
       }
     }
     return null;
